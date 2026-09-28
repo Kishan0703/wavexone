@@ -25,9 +25,27 @@ Run lint and typecheck before declaring any task done.
 
 ## Navigation & Routing
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
+This project uses **React Navigation**, not Expo Router.
+
+- Navigators live in `src/navigation/`. `root-navigator.tsx` holds the native stack, `tab-navigator.tsx` the tabs plus the per-tab native stacks, `types.ts` the param lists.
+- Stacks are `@react-navigation/native-stack`. Screens draw their own headers, so `headerShown` is off everywhere.
+- The tab bar is a custom component (`src/navigation/tab-bar.tsx`) rather than a native one: the design puts a floating circular Trade button through the bar and gives each tab a different selected treatment. Do not swap it for a native tab bar without re-reading the mockups.
+- Screens that keep the tab bar visible (Balance, Activity) are pushed inside a tab's stack. Screens that replace it (Instrument detail) sit in the root stack above the tabs.
+- Docs: https://reactnavigation.org/docs/native-stack-navigator
+
+## Project layout
+
+```
+src/design-system/   colours, type scale, and every shared primitive; screens import only from here
+src/features/        composite pieces tied to one domain (market row, position card, chart, …)
+src/screens/         one file per screen
+src/navigation/      navigators, param lists, the custom tab bar
+src/data/            fixtures, domain types, and hoisted Intl formatters
+```
+
+- Never import `Text`, `Pressable`, or an image component from `react-native` / a package inside a screen. Go through `src/design-system`.
+- Colours and sizes come from `colors.ts` and `tokens.ts`. Both were sampled from the mockups in the repo root; changing a value there changes it everywhere.
+- `src/data/mock.ts` is a fixture module. The real client is specified in `WAVEXONE_BACKEND_INTEGRATION_GUIDE.md` §5 — screens consume the types in `src/data/types.ts` so the swap is local.
 
 ## Building with EAS
 

@@ -1,0 +1,43 @@
+/*
+ * Web only. On iOS and Android the same faces are embedded at build time by
+ * the `expo-font` config plugin in app.json; Metro treats a CSS import as a
+ * no-op on native, so this file never ships to the apps.
+ *
+ * Family names match `fonts` in tokens.ts, which in turn match the file names
+ * the config plugin registers.
+ */
+
+@font-face {
+  font-family: 'Inter_400Regular';
+  src: url('/fonts/Inter_400Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Inter_500Medium';
+  src: url('/fonts/Inter_500Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Inter_600SemiBold';
+  src: url('/fonts/Inter_600SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Inter_700Bold';
+  src: url('/fonts/Inter_700Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Inter_800ExtraBold';
+  src: url('/fonts/Inter_800ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-display: block;
+}

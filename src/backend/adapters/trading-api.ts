@@ -46,7 +46,7 @@ export class TradingApiAdapter {
    */
   async signIn(email: string, password: string, footprint: string): Promise<SignInOutcome> {
     const checked = await this.gate.call('check', {
-      form: { email, password, footprint },
+      body: { email, password, footprint },
     })
     const body = objectish.safeParse(unwrapEnvelope(checked, 'check'))
     if (!body.success) {
@@ -90,7 +90,7 @@ export class TradingApiAdapter {
    */
   async issueBearer(accountToken: string, secretKey: string, footprint: string): Promise<string> {
     const response = await this.gate.call('bearer', {
-      form: { token: accountToken, footprint },
+      body: { token: accountToken, footprint },
       headers: { Secretkey: secretKey },
     })
 
@@ -132,5 +132,54 @@ export class TradingApiAdapter {
       Secretkey: material.secretKey,
       Bearer: material.bearerToken,
     }
+  }
+
+  /**
+   * The per-account `fingerprint` every order mutation carries.
+   *
+   * Separate from `material.footprint`, which is the pre-auth device value
+   * sent to `check`/`bearer`. The two are shaped differently: a footprint is
+   * a short client-chosen label, a fingerprint is `<32 hex chars>_<accountId>`.
+   * Sending the wrong one would fail only at order time, so the two never
+   * share a field. (Shapes only — the collection's literal values are live
+   * credentials and are not reproduced here.)
+   *
+   * Marked a mutation in the registry, so it needs an idempotency key; the
+   * account id is a natural one, since a second call for the same account is
+   * the same intent.
+   *
+   * The *request* is transcribed from the collection. The *response* is not —
+   * the collection captured no body for any of its 121 trading requests. So
+   * this accepts either a bare value or a JSON envelope carrying one, and
+   * refuses anything else rather than handing a plausible-looking wrong
+   * string to `placeorder`.
+   */
+  async issueOrderFingerprint(material: SessionMaterial, accountId: string): Promise<string> {
+    const response = await this.gate.call('createFingerprint', {
+      query: { token: material.accountToken, account_id: accountId },
+      headers: this.headers(material),
+      idempotencyKey: `fingerprint:${accountId}`,
+    })
+
+    // Unwrap first: a `{status, data}` envelope hides the value one level
+    // down, and a `status: fail` envelope would otherwise read as a body.
+    const unwrapped = response.json === undefined ? undefined : unwrapEnvelope(response, 'createFingerprint')
+    const body = objectish.safeParse(unwrapped)
+    const fingerprint = body.success
+      ? pick(body.data, 'fingerprint', 'footprint', 'result', 'value')
+      : typeof unwrapped === 'string'
+        ? unwrapped
+        : response.text.trim()
+
+    // Every sample in the collection ends `_<accountId>`; anything else means
+    // we are reading the wrong field out of an envelope we have never seen.
+    if (!fingerprint || !fingerprint.endsWith(`_${accountId}`)) {
+      throw new BackendError(
+        'malformed',
+        'The service did not return a usable order fingerprint.',
+        { endpoint: 'createFingerprint' },
+      )
+    }
+    return fingerprint
   }
 }

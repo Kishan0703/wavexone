@@ -100,10 +100,52 @@ describe('network failures', () => {
 
 describe('request encoding', () => {
   it('form-encodes a body and sets the content type', async () => {
-    await send(request({ method: 'POST', form: { email: 'a@b.com', password: 'p w&d' } }))
+    await send(
+      request({
+        method: 'POST',
+        encoding: 'form',
+        body: { email: 'a@b.com', password: 'p w&d' },
+      }),
+    )
     const [, init] = fetchMock.mock.calls[0]
     expect(init.headers['Content-Type']).toBe('application/x-www-form-urlencoded')
     expect(init.body).toBe('email=a%40b.com&password=p%20w%26d')
+  })
+
+  it('sends a JSON document to the portal routes that parse one', async () => {
+    // The portal's api* routes read a JSON body; form-encoding them yields an
+    // empty payload and a confusing 400.
+    await send(
+      request({ method: 'POST', encoding: 'json', body: { ids: ['withdraw-123'], page: 1 } }),
+    )
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init.headers['Content-Type']).toBe('application/json')
+    expect(init.body).toBe('{"ids":["withdraw-123"],"page":1}')
+  })
+
+  it('sends multipart without a hand-written content type', async () => {
+    // The boundary has to come from the runtime; setting the header omits it.
+    await send(
+      request({ method: 'POST', encoding: 'multipart', body: { amount: '100' } }),
+    )
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init.headers['Content-Type']).toBeUndefined()
+    expect(init.body).toBeInstanceOf(FormData)
+  })
+
+  it('drops undefined parameters rather than sending the string "undefined"', async () => {
+    // `sl`, `target` and `trigger` are all meaningful when absent.
+    await send(
+      request({ method: 'POST', encoding: 'form', body: { lot: '0.01', sl: undefined } }),
+    )
+    expect(fetchMock.mock.calls[0][1].body).toBe('lot=0.01')
+  })
+
+  it('defaults to form encoding when none is given', async () => {
+    await send(request({ method: 'POST', body: { token: 'abc' } }))
+    const [, init] = fetchMock.mock.calls[0]
+    expect(init.headers['Content-Type']).toBe('application/x-www-form-urlencoded')
+    expect(init.body).toBe('token=abc')
   })
 
   it('sends no body and no content type on a GET', async () => {

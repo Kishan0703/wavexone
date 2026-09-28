@@ -50,10 +50,6 @@ function configFromEnvironment(): BackendConfig | null {
     portalOrigin,
     chartingBaseUrl: process.env.EXPO_PUBLIC_WAVEX_CHARTING_URL ?? portalBaseUrl,
     phase: readPhase(),
-    // Guide §7.6 is unanswered, so mutations with an inferred HTTP method
-    // stay off. Turning this on is a deliberate act by whoever has the
-    // collection open next to them.
-    allowUnconfirmedMutations: process.env.EXPO_PUBLIC_WAVEX_ALLOW_UNCONFIRMED === 'true',
     timeoutMs: DEFAULT_TIMEOUT_MS,
   }
 }

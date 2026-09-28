@@ -21,15 +21,34 @@ export type BackendConfig = {
   portalOrigin: string
   /** Guide §8. Read-only until the backend team authorizes more. */
   phase: Phase
-  /**
-   * Allows mutations whose HTTP method we inferred rather than confirmed.
-   * Stays false until guide §7.6 (request/response examples) is answered.
-   */
-  allowUnconfirmedMutations: boolean
   timeoutMs: number
 }
 
 export const DEFAULT_TIMEOUT_MS = 20_000
+
+/**
+ * Catches a parameter name the API does not know.
+ *
+ * This API ignores what it does not recognise rather than rejecting it, so
+ * `orderID` misspelled as `orderId` on `mobileapp_modifyorder` would return a
+ * cheerful success having modified nothing. The registry records the real
+ * names (guide §5, "legacy parameter names"), so checking against it turns a
+ * silent no-op into an error at the call site.
+ */
+function assertKnownParams(key: EndpointKey, options: CallOptions): void {
+  const allowed = ENDPOINTS[key].params
+  if (!allowed) return
+
+  const supplied = [...Object.keys(options.query ?? {}), ...Object.keys(options.body ?? {})]
+  const unknown = supplied.filter((name) => !allowed.includes(name))
+  if (unknown.length > 0) {
+    throw new BackendError(
+      'blocked',
+      `"${key}" does not accept ${unknown.join(', ')}. It accepts: ${allowed.join(', ')}.`,
+      { endpoint: key },
+    )
+  }
+}
 
 /**
  * How long a completed mutation is remembered. Long enough to swallow a
@@ -40,7 +59,7 @@ const MUTATION_MEMORY_MS = 30_000
 
 type CallOptions = {
   query?: Record<string, string>
-  form?: Record<string, string>
+  body?: Record<string, unknown>
   headers?: Record<string, string>
   /**
    * Required for mutations. Identifies one user intent, so a repeat of the
@@ -86,17 +105,6 @@ export class Gate {
   }
 
   private async callMutation(key: EndpointKey, options: CallOptions): Promise<HttpResponse> {
-    const spec = ENDPOINTS[key]
-
-    if (spec.unconfirmedMethod && !this.config.allowUnconfirmedMutations) {
-      throw new BackendError(
-        'blocked',
-        `"${key}" is a mutation whose HTTP method is inferred, not documented. ` +
-          'Confirm it against the collection (guide §7.6) before enabling it.',
-        { endpoint: key },
-      )
-    }
-
     if (!options.idempotencyKey) {
       throw new BackendError(
         'blocked',
@@ -143,35 +151,44 @@ export class Gate {
 
   private perform(key: EndpointKey, options: CallOptions): Promise<HttpResponse> {
     const spec = ENDPOINTS[key]
-    const base = this.baseUrlFor(key)
-
-    const url =
-      spec.transport === 'trading'
-        ? buildUrl(base, { collect: spec.name, ...options.query })
-        : buildUrl(`${base}/${spec.name}`, options.query ?? {})
+    assertKnownParams(key, options)
 
     return send({
-      url,
+      url: this.urlFor(key, options.query ?? {}),
       method: spec.method,
       headers: {
+        // Guide §3.2 step 2 — and since 2026-08-21 `setPortalSession` returns
+        // 403 "Untrusted origin" without a matching Origin or Referer.
         ...(spec.transport === 'portal' ? { Origin: this.config.portalOrigin } : null),
         ...options.headers,
       },
-      form: options.form,
+      body: options.body,
+      encoding: spec.encoding,
       endpoint: key,
       timeoutMs: this.config.timeoutMs,
       withCredentials: spec.transport === 'portal',
     })
   }
 
-  private baseUrlFor(key: EndpointKey): string {
-    switch (ENDPOINTS[key].transport) {
+  private urlFor(key: EndpointKey, query: Record<string, string>): string {
+    const spec = ENDPOINTS[key]
+    switch (spec.transport) {
       case 'trading':
-        return `${this.config.tradingBaseUrl}/api-v1/v1.php`
+        // Everything on this host dispatches through one script.
+        return buildUrl(`${this.config.tradingBaseUrl}/api-v1/v1.php`, {
+          collect: spec.name,
+          ...query,
+        })
       case 'portal':
-        return this.config.portalBaseUrl
+        // `portalBaseUrl` already ends in /client-portal.
+        return buildUrl(`${this.config.portalBaseUrl}/${spec.name}`, query)
       case 'charting':
-        return this.config.chartingBaseUrl
+        // The charting host has a real path and still wants `collect` in the
+        // query string: /charting_library2/history?…&collect=watchlist_charting
+        return buildUrl(`${this.config.chartingBaseUrl}/charting_library2/history`, {
+          ...query,
+          collect: spec.name,
+        })
     }
   }
 

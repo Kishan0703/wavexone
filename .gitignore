@@ -42,3 +42,9 @@ yarn-error.*
 
 # local agent tooling state
 /.kilo
+
+# API collections. These hold literal account tokens and device fingerprints in
+# ~80 URLs (guide §6.1) and must never reach the remote. Keep them local; the
+# endpoint contract derived from them lives in src/backend/endpoints.ts.
+*postman_collection.json
+*postman_environment*.json

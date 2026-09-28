@@ -18,7 +18,6 @@ const CONFIG: BackendConfig = {
   chartingBaseUrl: 'https://charts.example',
   portalOrigin: 'https://app.example',
   phase: 1,
-  allowUnconfirmedMutations: false,
   timeoutMs: 1000,
 }
 
@@ -205,5 +204,70 @@ describe('isSessionValid', () => {
 describe('headers', () => {
   it('sends both credentials required by guide §3.1 step 5', () => {
     expect(adapter().headers(MATERIAL)).toEqual({ Secretkey: 'sk-1', Bearer: 'bearer-1' })
+  })
+})
+
+describe('order fingerprint', () => {
+  /** `create_fingerprint` is phase 2, so the gate has to allow it. */
+  function phase2Adapter() {
+    return new TradingApiAdapter(new Gate({ ...CONFIG, phase: 2 }))
+  }
+
+  /**
+   * Synthetic, but the real shape: 32 hex characters, an underscore, then the
+   * account id. The collection's own samples are live credentials and are not
+   * copied into this repo.
+   */
+  const FINGERPRINT = '0123456789abcdef0123456789abcdef_8'
+
+  it('asks create_fingerprint for the account, not the footprint', async () => {
+    // The two are different identifiers. `placeorder` wants this one.
+    const fetchMock = scriptFetch({ body: FINGERPRINT })
+    await expect(phase2Adapter().issueOrderFingerprint(MATERIAL, '8')).resolves.toBe(FINGERPRINT)
+
+    const [url] = fetchMock.mock.calls[0]
+    expect(url).toContain('collect=create_fingerprint')
+    expect(url).toContain('account_id=8')
+    expect(url).not.toContain('footprint')
+  })
+
+  it('reads the value out of an envelope when it gets one', async () => {
+    // The collection captured no response for this route, so both a bare
+    // body and a wrapped one have to be survivable.
+    scriptFetch({ body: '{"status":"success","data":{"fingerprint":"abc_22"}}' })
+    await expect(phase2Adapter().issueOrderFingerprint(MATERIAL, '22')).resolves.toBe('abc_22')
+  })
+
+  it('refuses a value that is not for the account it asked about', async () => {
+    // Handing the wrong fingerprint to `placeorder` is worse than failing.
+    scriptFetch({ body: 'abc_999' })
+    await expect(phase2Adapter().issueOrderFingerprint(MATERIAL, '8')).rejects.toMatchObject({
+      kind: 'malformed',
+    })
+  })
+
+  it('refuses an empty body rather than sending a blank fingerprint', async () => {
+    scriptFetch({ body: '' })
+    await expect(phase2Adapter().issueOrderFingerprint(MATERIAL, '8')).rejects.toMatchObject({
+      kind: 'malformed',
+    })
+  })
+
+  it('stays unreachable from a phase 1 build', async () => {
+    // Guide §8: order plumbing belongs to phase 2.
+    await expect(adapter().issueOrderFingerprint(MATERIAL, '8')).rejects.toThrow(
+      /delivery phase 2/,
+    )
+  })
+
+  it('does not issue twice for the same account', async () => {
+    // Registered as a mutation, so the duplicate-submission guard applies.
+    const fetchMock = scriptFetch({ body: 'abc_8' }, { body: 'different_8' })
+    const subject = phase2Adapter()
+
+    await subject.issueOrderFingerprint(MATERIAL, '8')
+    await subject.issueOrderFingerprint(MATERIAL, '8')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 })

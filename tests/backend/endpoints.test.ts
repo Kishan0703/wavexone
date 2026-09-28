@@ -26,10 +26,17 @@ describe('the registry as a whole', () => {
   })
 
   it('denies every legacy and unsafe route the guide names', () => {
-    // §6.5, §6.6, §6.7.
-    expect(Object.keys(DENIED_ENDPOINTS).sort()).toEqual(
-      ['getPayinInfo', 'getPayoutInfo', 'sendnotification', 'swapFunctionality', 'transferBalance'].sort(),
-    )
+    // §6.5, §6.6, §6.7. The collections turned up further legacy and
+    // view-rendering routes; those are additions, never removals.
+    for (const required of [
+      'getPayinInfo',
+      'getPayoutInfo',
+      'sendnotification',
+      'swapFunctionality',
+      'transferBalance',
+    ]) {
+      expect(Object.keys(DENIED_ENDPOINTS)).toContain(required)
+    }
   })
 
   it('explains every denial rather than just refusing', () => {
@@ -133,14 +140,68 @@ describe('mutation safety', () => {
     }
   })
 
-  it('flags every endpoint whose method was inferred rather than documented', () => {
-    // Guide §7.6 is unanswered. The flag is what keeps unconfirmed mutations
-    // switched off by default, so the handshake endpoints the guide *does*
-    // document should be the only unflagged ones.
-    const confirmed = entries
-      .filter(([, spec]) => !spec.unconfirmedMethod)
-      .map(([key]) => key)
-      .sort()
-    expect(confirmed).toEqual(['auth', 'bearer', 'check', 'setPortalSession'])
+  it('records the parameter names every endpoint accepts', () => {
+    // This API ignores parameters it does not recognise instead of rejecting
+    // them, so a misspelling returns a cheerful success having done nothing.
+    // The registry is what lets `Gate` catch that at the call site.
+    for (const [key, spec] of entries) {
+      expect(Array.isArray(spec.params)).toBe(true)
+      expect(key).toBeTruthy()
+    }
+  })
+
+  it('gives every POST an encoding and every GET none', () => {
+    // The two transports disagree: trading reads form fields, the portal's
+    // api* routes parse JSON. Guessing wrong yields an empty server-side body.
+    for (const [key, spec] of entries) {
+      if (spec.method === 'POST') {
+        expect(['form', 'json', 'multipart']).toContain(spec.encoding)
+      } else {
+        expect(spec.encoding).toBeUndefined()
+      }
+      expect(key).toBeTruthy()
+    }
+  })
+
+  it('sends the portal api* routes JSON and its legacy routes form fields', () => {
+    expect(ENDPOINTS.transfer.encoding).toBe('json')
+    expect(ENDPOINTS.markNotificationsRead.encoding).toBe('json')
+    expect(ENDPOINTS.saveProfile.encoding).toBe('json')
+    // Multipart, because it carries a proof image.
+    expect(ENDPOINTS.submitDeposit.encoding).toBe('multipart')
+    // Pre-api routes still read form fields.
+    expect(ENDPOINTS.setPortalSession.encoding).toBe('form')
+    expect(ENDPOINTS.switchAccountPortal.encoding).toBe('form')
+  })
+
+  it('keeps the auth footprint and the order fingerprint apart', () => {
+    // Two different device identifiers, spelled differently by the API.
+    // Sending one where the other belongs fails only at order time.
+    expect(ENDPOINTS.check.params).toContain('footprint')
+    expect(ENDPOINTS.bearer.params).toContain('footprint')
+
+    for (const key of [
+      'placeOrder',
+      'closePosition',
+      'modifyOrder',
+      'modifyPendingOrder',
+      'bulkClosePositions',
+      'bulkCancelPending',
+    ] as const) {
+      expect(ENDPOINTS[key].params).toContain('fingerprint')
+      expect(ENDPOINTS[key].params).not.toContain('footprint')
+    }
+  })
+
+  it('puts the chart configuration on the trading host, not the charting host', () => {
+    // `charting_library_cloned_data` dispatches through v1.php like every
+    // other collect= route; only the history feed lives on the chart host.
+    expect(ENDPOINTS.chartConfig.transport).toBe('trading')
+    expect(ENDPOINTS.chartBars.transport).toBe('charting')
+  })
+
+  it('exempts only getuser from the Bearer header', () => {
+    const open = entries.filter(([, spec]) => spec.unauthenticated).map(([key]) => key)
+    expect(open).toEqual(['getUser'])
   })
 })

@@ -15,7 +15,6 @@ const CONFIG: BackendConfig = {
   chartingBaseUrl: 'https://charts.example',
   portalOrigin: 'https://app.example',
   phase: 1,
-  allowUnconfirmedMutations: false,
   timeoutMs: 1000,
 }
 

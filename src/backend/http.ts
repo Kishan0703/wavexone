@@ -1,3 +1,4 @@
+import type { BodyEncoding } from './endpoints'
 import { BackendError } from './errors'
 import { logBackendEvent } from './redact'
 
@@ -13,8 +14,17 @@ export type HttpRequest = {
   url: string
   method: 'GET' | 'POST'
   headers?: Record<string, string>
-  /** Form-encoded body. The API does not accept JSON request bodies. */
-  form?: Record<string, string>
+  /**
+   * Request body, already keyed by the API's own parameter names.
+   *
+   * The encoding is not a detail the caller gets to pick: the trading API
+   * reads form fields, the portal's `api*` routes parse a JSON document, and
+   * `apiSubmitDeposit` is multipart because it carries a proof image. Sending
+   * JSON to a route that calls `$this->input->post()` yields an empty body
+   * and a confusing 400, so `encoding` comes off the endpoint spec.
+   */
+  body?: Record<string, unknown>
+  encoding?: BodyEncoding
   /** Endpoint key, for logging. Never a URL — URLs carry tokens. */
   endpoint: string
   timeoutMs: number
@@ -48,16 +58,18 @@ export async function send(request: HttpRequest): Promise<HttpResponse> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), request.timeoutMs)
 
+  const encoded = encodeBody(request)
+
   let response: Response
   try {
     response = await fetch(request.url, {
       method: request.method,
       headers: {
         Accept: 'application/json, text/plain',
-        ...(request.form ? { 'Content-Type': 'application/x-www-form-urlencoded' } : null),
+        ...encoded.headers,
         ...request.headers,
       },
-      body: request.form ? encodeForm(request.form) : undefined,
+      body: encoded.body,
       // Guide §3.2 step 3: the portal session is cookie-backed. On iOS and
       // Android the platform keeps the jar; on web the browser does, but only
       // if the request opts in.
@@ -113,10 +125,46 @@ export async function send(request: HttpRequest): Promise<HttpResponse> {
   return { status: response.status, json: tryParseJson(text), text }
 }
 
-function encodeForm(form: Record<string, string>): string {
-  return Object.entries(form)
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-    .join('&')
+type EncodedBody = { body?: string | FormData; headers: Record<string, string> }
+
+/**
+ * Turns the caller's parameter map into whatever the route actually parses.
+ *
+ * `undefined` values are dropped rather than sent as the string "undefined",
+ * which matters because most optional parameters here (`sl`, `target`,
+ * `trigger`) are meaningful when absent and dangerous when garbage.
+ */
+function encodeBody(request: HttpRequest): EncodedBody {
+  if (!request.body || request.method === 'GET') return { headers: {} }
+
+  const entries = Object.entries(request.body).filter(([, value]) => value !== undefined)
+
+  switch (request.encoding) {
+    case 'json':
+      return {
+        body: JSON.stringify(Object.fromEntries(entries)),
+        headers: { 'Content-Type': 'application/json' },
+      }
+
+    case 'multipart': {
+      const form = new FormData()
+      for (const [key, value] of entries) {
+        form.append(key, value as string | Blob)
+      }
+      // No explicit Content-Type: the boundary has to come from the runtime,
+      // and setting the header by hand omits it.
+      return { body: form, headers: {} }
+    }
+
+    case 'form':
+    default:
+      return {
+        body: entries
+          .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+          .join('&'),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      }
+  }
 }
 
 function tryParseJson(text: string): unknown {

@@ -26,7 +26,6 @@ const CONFIG: BackendConfig = {
   chartingBaseUrl: 'https://charts.example',
   portalOrigin: 'https://app.example',
   phase: 1,
-  allowUnconfirmedMutations: false,
   timeoutMs: 1000,
 }
 
@@ -201,7 +200,10 @@ describe('orders.counts', () => {
 
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toContain('collect=orderscount')
-    expect(url).toContain('account=acct-9')
+    // The collection sends `orderscount` the account token and nothing else —
+    // the token *is* the account, so there is no separate id to pass.
+    expect(url).toContain('token=acct-1')
+    expect(url).not.toContain('account=')
     expect(init.headers.Secretkey).toBe('sk-1')
     expect(init.headers.Bearer).toBe('raw.bearer')
   })
@@ -228,11 +230,21 @@ describe('the methods that are not wired yet', () => {
     ['engagement.notifications', () => backend().engagement.notifications()],
   ]
 
-  it.each(unwired)('%s refuses and names the guide §7 item that unblocks it', async (_name, call) => {
+  it.each(unwired)('%s refuses and names what would unblock it', async (_name, call) => {
     // The refusal is the feature: it turns "this screen shows nothing" into
-    // "ask the backend team for item N".
+    // a specific request to the backend team. Since the collections settled
+    // the request side, that request is now a named capture rather than a
+    // guide item — see docs/RESPONSE-CAPTURES.md.
     await expect(call()).rejects.toMatchObject({ kind: 'blocked' })
-    await expect(call()).rejects.toThrow(/guide §7 — item \d+/)
+    await expect(call()).rejects.toThrow(/Needs one captured response|guide §7\.\d/)
+  })
+
+  it('points every refusal at the capture list', async () => {
+    // One place to look, rather than a scavenger hunt through error strings.
+    const message = await backend()
+      .accounts.list()
+      .catch((error: Error) => error.message)
+    expect(message).toContain('docs/RESPONSE-CAPTURES.md')
   })
 
   it('never reaches the network for an unwired method', async () => {
@@ -256,6 +268,6 @@ describe('the methods that are not wired yet', () => {
     ['funds.transfer', () => backend().funds.transfer({ fromAccountId: 'a', toAccountId: 'b', amount: '100', idempotencyKey: 'k' })],
   ])('%s stays blocked until money cannot actually move (guide §7.4)', async (_name, call) => {
     // Guide §2: "real-money funding must remain disabled".
-    await expect(call()).rejects.toThrow(/cannot move real money/)
+    await expect(call()).rejects.toThrow(/non-live test method/)
   })
 })

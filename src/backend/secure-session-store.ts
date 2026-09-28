@@ -24,8 +24,25 @@ export type SessionMaterial = {
    * JSON (guide §3.1 step 4).
    */
   bearerToken: string
-  /** Stable per-install device footprint. */
+  /**
+   * Stable per-install device identifier, sent to `check` and `bearer`.
+   *
+   * Not the same thing as the order `fingerprint` below, despite reading like
+   * a synonym. This one is client-chosen, exists before authentication, and
+   * is a short free-form label rather than the fingerprint's
+   * `<hex>_<accountId>` form. The app generates a random UUID per install.
+   */
   footprint: string
+  /**
+   * Server-issued, per-account, required by every order mutation
+   * (`placeorder`, `squareoff`, `modify`, the bulk closes). Comes from
+   * `collect=create_fingerprint&token=…&account_id=…` and is formatted
+   * `<hex>_<accountId>`.
+   *
+   * Absent until an order mutation needs one, which is why it is optional:
+   * a phase-1 build never asks for it.
+   */
+  orderFingerprint?: string
   /** When the bearer was issued, so expiry can be reasoned about. */
   issuedAt: string
 }

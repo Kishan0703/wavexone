@@ -14,7 +14,6 @@ const BASE: BackendConfig = {
   chartingBaseUrl: 'https://charts.example',
   portalOrigin: 'https://app.example',
   phase: 4,
-  allowUnconfirmedMutations: true,
   timeoutMs: 1000,
 }
 
@@ -75,12 +74,29 @@ describe('mutations', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('refuses an inferred method until it is confirmed', async () => {
-    const gate = gateWith({ allowUnconfirmedMutations: false })
-    await expect(gate.call('placeOrder', { idempotencyKey: 'a' })).rejects.toThrow(
-      /inferred, not documented/,
-    )
+  it('refuses a parameter the endpoint does not accept', async () => {
+    // The API ignores unknown parameters rather than rejecting them, so
+    // `orderId` where the route wants `orderID` would report success having
+    // modified nothing. Fail at the call site instead.
+    const gate = gateWith()
+    await expect(
+      gate.call('modifyOrder', { query: { orderId: '8612' }, idempotencyKey: 'a' }),
+    ).rejects.toThrow(/does not accept orderId/)
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('names the parameters it does accept, so the fix is obvious', async () => {
+    const gate = gateWith()
+    await expect(gate.call('ordersCount', { query: { account: '10233' } })).rejects.toThrow(
+      /It accepts: token/,
+    )
+  })
+
+  it('checks body parameters as well as query parameters', async () => {
+    const gate = gateWith()
+    await expect(
+      gate.call('transfer', { body: { from: 'a', to: 'b' }, idempotencyKey: 'a' }),
+    ).rejects.toThrow(/does not accept from, to/)
   })
 
   it('sends one request when the same intent is submitted twice', async () => {

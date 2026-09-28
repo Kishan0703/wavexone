@@ -25,7 +25,7 @@ export class ClientPortalAdapter {
     if (this.established) return
 
     await this.gate.call('setPortalSession', {
-      form: { token: material.accountToken },
+      body: { token: material.accountToken },
     })
     this.established = true
     logBackendEvent('portal.session-established')

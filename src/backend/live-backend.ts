@@ -11,20 +11,23 @@ import { createSessionStore, type SessionMaterial, type SessionStore } from './s
  * The real backend.
  *
  * Authentication is implemented in full, because guide §3 documents it step
- * by step. The data calls are not: the guide lists which endpoint backs each
- * screen but not what any of them return, and guide §7 asks the backend team
- * for exactly that. Rather than invent field names that would compile, read
- * plausibly, and silently produce wrong numbers in a trading app, those
- * methods refuse with the specific thing that is missing.
+ * by step. Most data calls are not, and the reason is now narrower than it
+ * was: the supplied collections pin down every *request* — method, path,
+ * parameter names — but carry no successful *response* anywhere. The trading
+ * collection captured none across its 121 requests; the portal's 15 examples
+ * are all unauthenticated 401s and empty 200s.
  *
- * Every refusal names a numbered item from guide §7, so wiring a screen tells
- * you which question to chase rather than leaving you guessing.
+ * So the field names inside a payload are still unknown, and inventing them
+ * would produce code that compiles, reads plausibly, and shows the wrong
+ * balance. Each method below refuses with the capture that would unblock it.
+ *
+ * `docs/RESPONSE-CAPTURES.md` lists those captures in one place.
  */
 
-function needs(item: string, guideItem: string): never {
+function needs(item: string, capture: string): never {
   throw new BackendError(
     'blocked',
-    `Not wired yet: ${item}. Blocked on guide §7 — ${guideItem}.`,
+    `Not wired yet: ${item}. Needs one captured response from ${capture} — see docs/RESPONSE-CAPTURES.md.`,
   )
 }
 
@@ -116,29 +119,38 @@ export function createLiveBackend(config: BackendConfig): WaveXBackend {
     },
 
     accounts: {
-      summary: async () => needs('account summary', 'item 6, response examples for accountList/getuser'),
-      list: async () => needs('account list', 'item 6, response examples for accountList'),
+      summary: async () => needs('account summary', 'collect=accountList'),
+      list: async () => needs('account list', 'collect=accountList'),
       async switchAccount() {
-        // Reachable, but deliberately not wired: guide §4.2 lists both a
-        // trading and a portal `switchAccount` and §7.7 asks which one wins.
-        needs('account switching', 'item 7, which of the two switchAccount endpoints to prefer')
+        // The request is known (`collect=switchAccount&token=…&switchtoken=…`),
+        // but guide §4.2 lists a portal `switchAccount` too and §7.7 asks
+        // which one wins. Picking wrong desynchronises the two sessions.
+        needs('account switching', 'both switchAccount routes, plus a decision on which to use')
       },
-      profile: async () => needs('profile', 'item 6, response examples for detail/apiBootstrap'),
+      profile: async () => needs('profile', 'apiBootstrap'),
     },
 
     markets: {
-      catalogue: async () => needs('market catalogue', 'item 11, precision and lot rules per instrument'),
-      favorites: async () => needs('favorites', 'item 6, response examples for getfav'),
-      setFavorite: async () => needs('favorite toggle', 'item 6, response examples for updateFavorite'),
-      quoteSnapshot: async () => needs('live quotes', 'item 5, the live-price WebSocket or polling spec'),
-      candles: async () => needs('chart history', 'item 5, the charting request contract'),
+      // Guide §7.11 (precision, lot step, margin rules per instrument) is
+      // still outstanding on top of the capture.
+      catalogue: async () => needs('market catalogue', 'collect=mwatch and collect=symbolSpreadApp'),
+      favorites: async () => needs('favorites', 'collect=getfav'),
+      setFavorite: async () => needs('favorite toggle', 'collect=updateFavorite'),
+      // Guide §7.5: no live-quote transport is documented at all. A capture
+      // does not unblock this one — the subscription contract is missing.
+      quoteSnapshot: async () =>
+        needs('live quotes', 'the live-price WebSocket or polling spec (guide §7.5)'),
+      candles: async () => needs('chart history', 'watchlist_charting on the charting host'),
     },
 
     orders: {
-      async counts(accountId) {
+      async counts() {
         const session = requireSession()
+        // `orderscount` takes the account token and nothing else — the token
+        // *is* the account. Switching accounts means re-issuing the session
+        // (`switchAccount`), not passing an id alongside.
         const body = await gate.callJson('ordersCount', {
-          query: { token: session.accountToken, account: accountId },
+          query: { token: session.accountToken },
           headers: trading.headers(session),
         })
 
@@ -155,27 +167,31 @@ export function createLiveBackend(config: BackendConfig): WaveXBackend {
         }
       },
 
-      list: async () => needs('open positions', 'item 2, a staging account holding an open position'),
-      history: async () => needs('closed history', 'item 6, response examples for history_of_closed_orders'),
-      place: async () => needs('order placement', 'item 3, written authorization to test trading mutations'),
-      modify: async () => needs('order modification', 'item 3, written authorization to test trading mutations'),
-      cancel: async () => needs('order cancellation', 'item 3, written authorization to test trading mutations'),
-      close: async () => needs('position close', 'item 3, written authorization to test trading mutations'),
+      // Guide §7.2 also asks for an account that actually holds an open
+      // position, since an empty list teaches nothing about the row shape.
+      list: async () => needs('open positions', 'collect=orders on a funded account'),
+      history: async () => needs('closed history', 'collect=history_of_closed_orders'),
+      // These four are phase 2 regardless of any capture: guide §7.3 requires
+      // written authorization before a trading mutation runs anywhere.
+      place: async () => needs('order placement', 'written authorization (guide §7.3)'),
+      modify: async () => needs('order modification', 'written authorization (guide §7.3)'),
+      cancel: async () => needs('order cancellation', 'written authorization (guide §7.3)'),
+      close: async () => needs('position close', 'written authorization (guide §7.3)'),
     },
 
     funds: {
-      configuration: async () => needs('funding configuration', 'item 6, response examples for apiRedeemConfig'),
-      deposit: async () => needs('deposit submission', 'item 4, test methods that cannot move real money'),
+      configuration: async () => needs('funding configuration', 'apiRedeemConfig'),
+      // Phase 3, and guide §7.4 requires methods that cannot move real money.
+      deposit: async () => needs('deposit submission', 'a non-live test method (guide §7.4)'),
       requestWithdrawal: async () =>
-        needs('withdrawal', 'item 4, test methods that cannot move real money'),
-      transfer: async () => needs('transfer', 'item 4, test methods that cannot move real money'),
-      history: async () => needs('funding history', 'item 6, response examples for payout_in_out'),
+        needs('withdrawal', 'a non-live test method (guide §7.4)'),
+      transfer: async () => needs('transfer', 'a non-live test method (guide §7.4)'),
+      history: async () => needs('funding history', 'collect=payout_in_out'),
     },
 
     engagement: {
-      notifications: async () => needs('notifications', 'item 6, response examples for apiNotifications'),
-      markNotificationsRead: async () =>
-        needs('notification read state', 'item 6, response examples for apiNotificationsRead'),
+      notifications: async () => needs('notifications', 'apiNotifications'),
+      markNotificationsRead: async () => needs('notification read state', 'apiNotificationsRead'),
     },
   }
 }

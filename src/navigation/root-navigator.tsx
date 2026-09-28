@@ -1,8 +1,15 @@
 import { DefaultTheme, NavigationContainer, type Theme } from '@react-navigation/native'
-import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import {
+  createNativeStackNavigator,
+  type NativeStackNavigationOptions,
+} from '@react-navigation/native-stack'
 
 import { colors, fonts } from '../design-system'
+import { AccountSwitcherScreen } from '../screens/account-switcher-screen'
+import { FundingScreen } from '../screens/funding-screen'
+import { InstrumentPickerScreen } from '../screens/instrument-picker-screen'
 import { InstrumentScreen } from '../screens/instrument-screen'
+import { OrderTicketScreen } from '../screens/order-ticket-screen'
 import { TabNavigator } from './tab-navigator'
 import type { RootStackParamList } from './types'
 
@@ -11,6 +18,10 @@ const Stack = createNativeStackNavigator<RootStackParamList>()
 /**
  * Native stack throughout. Every screen draws its own header, so the native
  * one is disabled rather than replaced with a JS `header` component.
+ *
+ * The four sheet routes use the platform's form-sheet presentation, so
+ * swipe-to-dismiss, the dimmed backdrop and keyboard avoidance are native
+ * rather than reimplemented in JS.
  */
 export function RootNavigator() {
   return (
@@ -18,12 +29,29 @@ export function RootNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: CONTENT_STYLE }}>
         <Stack.Screen name="Tabs" component={TabNavigator} />
         <Stack.Screen name="Instrument" component={InstrumentScreen} />
+
+        <Stack.Group screenOptions={SHEET_OPTIONS}>
+          <Stack.Screen name="Funding" component={FundingScreen} />
+          <Stack.Screen name="OrderTicket" component={OrderTicketScreen} />
+          <Stack.Screen name="AccountSwitcher" component={AccountSwitcherScreen} />
+          <Stack.Screen name="InstrumentPicker" component={InstrumentPickerScreen} />
+        </Stack.Group>
       </Stack.Navigator>
     </NavigationContainer>
   )
 }
 
 const CONTENT_STYLE = { backgroundColor: colors.bg }
+
+const SHEET_OPTIONS: NativeStackNavigationOptions = {
+  presentation: 'formSheet',
+  // Fixed detents rather than `fitToContents`: the sheets scroll, so they
+  // have no intrinsic height for the platform to measure.
+  sheetAllowedDetents: [0.72, 0.96],
+  sheetCornerRadius: 28,
+  sheetGrabberVisible: true,
+  contentStyle: CONTENT_STYLE,
+}
 
 const navigationTheme: Theme = {
   ...DefaultTheme,

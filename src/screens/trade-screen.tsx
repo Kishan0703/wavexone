@@ -1,6 +1,3 @@
-import { useNavigation } from '@react-navigation/native'
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { useState } from 'react'
 import { ScrollView, StyleSheet, View } from 'react-native'
 
 import {
@@ -9,11 +6,13 @@ import {
   ButtonSubText,
   ButtonText,
   Card,
+  ChevronDownIcon,
   ChevronRightIcon,
   Delta,
   Divider,
   Gutter,
   Pressable,
+  PressableScale,
   Screen,
   SegmentedControl,
   TAB_BAR_CLEARANCE,
@@ -21,45 +20,49 @@ import {
   colors,
   radius,
 } from '../design-system'
-import { account, instruments } from '../data/mock'
-import { directionOf, formatLots, formatPercent, formatPrice } from '../data/format'
-import type { RootStackParamList } from '../navigation/types'
+import { instruments, instrumentsById } from '../data/mock'
+import { directionOf, formatLots, formatMoney, formatPercent, formatPrice } from '../data/format'
+import { selectAccount, useSession } from '../data/store'
+import { useTradeDraft, type OrderType } from '../data/trade-draft'
+import { useAppNavigation } from '../navigation/use-app-navigation'
 
-type Navigation = NativeStackNavigationProp<RootStackParamList>
-
-const ORDER_TYPES = ['Market', 'Limit', 'Stop'] as const
+const ORDER_TYPES: readonly OrderType[] = ['Market', 'Limit', 'Stop']
 const LOT_STEP = 0.01
-const CONTRACT_SIZE = 100
-const LEVERAGE = 200
 
 /**
  * Trade tab. Not in the supplied mockups — an order ticket assembled from the
  * existing primitives, with the same Sell / Buy pair the detail screen uses.
  */
 export function TradeScreen() {
-  const { navigate } = useNavigation<Navigation>()
-  const [instrumentId, setInstrumentId] = useState(instruments[0].id)
-  const [orderType, setOrderType] = useState<(typeof ORDER_TYPES)[number]>('Market')
-  const [lots, setLots] = useState(0.5)
+  const { openAccountSwitcher, openInstrumentPicker, openOrderTicket, openInstrument } =
+    useAppNavigation()
 
-  const instrument = instruments.find((item) => item.id === instrumentId) ?? instruments[0]
-  const margin = (instrument.price * CONTRACT_SIZE * lots) / LEVERAGE
+  const account = useSession(selectAccount)
+  const instrumentId = useTradeDraft((state) => state.instrumentId)
+  const orderType = useTradeDraft((state) => state.orderType)
+  const lots = useTradeDraft((state) => state.lots)
+  const setOrderType = useTradeDraft((state) => state.setOrderType)
+  const setLots = useTradeDraft((state) => state.setLots)
+
+  const instrument = instrumentsById.get(instrumentId) ?? instruments[0]
+  const margin = (instrument.price * instrument.contractSize * lots) / account.leverage
   const spread = instrument.ask - instrument.bid
-
-  const cycleInstrument = () => {
-    const index = instruments.findIndex((item) => item.id === instrumentId)
-    setInstrumentId(instruments[(index + 1) % instruments.length].id)
-  }
 
   return (
     <Screen>
       <Gutter style={styles.titleRow}>
         <Text variant="title">Trade</Text>
-        <View style={styles.accountPill}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Switch account"
+          onPress={openAccountSwitcher}
+          style={styles.accountPill}
+        >
           <Text variant="body">
             {account.mode} · {account.number}
           </Text>
-        </View>
+          <ChevronDownIcon size={18} color={colors.text} />
+        </Pressable>
       </Gutter>
 
       <ScrollView
@@ -68,10 +71,10 @@ export function TradeScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <Gutter>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Change instrument"
-            onPress={cycleInstrument}
+          <PressableScale
+            scaleTo={0.99}
+            onPress={openInstrumentPicker}
+            onLongPress={() => openInstrument(instrument.id)}
           >
             <Card style={styles.instrument}>
               <AssetIcon
@@ -81,8 +84,10 @@ export function TradeScreen() {
                 size={42}
               />
               <View style={styles.instrumentIdentity}>
-                <Text variant="strong">{instrument.symbol}</Text>
-                <Text variant="caption" color={colors.textMuted}>
+                <Text variant="strong" numberOfLines={1}>
+                  {instrument.symbol}
+                </Text>
+                <Text variant="caption" color={colors.textMuted} numberOfLines={1}>
                   {instrument.description}
                 </Text>
               </View>
@@ -96,7 +101,7 @@ export function TradeScreen() {
               </View>
               <ChevronRightIcon size={20} color={colors.textSubtle} />
             </Card>
-          </Pressable>
+          </PressableScale>
         </Gutter>
 
         <Gutter>
@@ -109,52 +114,89 @@ export function TradeScreen() {
               Volume
             </Text>
             <View style={styles.stepper}>
-              <Stepper label="−" onPress={() => setLots((prev) => Math.max(LOT_STEP, round(prev - LOT_STEP)))} />
+              <Stepper
+                label="−"
+                accessibilityLabel="Decrease volume"
+                onPress={() => setLots((previous) => previous - LOT_STEP)}
+              />
               <Text variant="displaySm" style={styles.lots}>
                 {formatLots(lots)}
               </Text>
-              <Stepper label="+" onPress={() => setLots((prev) => round(prev + LOT_STEP))} />
+              <Stepper
+                label="+"
+                accessibilityLabel="Increase volume"
+                onPress={() => setLots((previous) => previous + LOT_STEP)}
+              />
             </View>
           </Card>
         </Gutter>
 
         <Gutter>
           <Card style={styles.summary}>
-            <SummaryRow label="Required margin" value={`$${margin.toFixed(2)}`} />
+            <SummaryRow label="Required margin" value={formatMoney(margin)} />
+            <Divider />
+            <SummaryRow label="Free margin" value={formatMoney(account.freeMargin)} />
             <Divider />
             <SummaryRow label="Spread" value={formatPrice(spread, instrument.precision)} />
             <Divider />
-            <SummaryRow label="Contract size" value={`${CONTRACT_SIZE} / lot`} />
+            <SummaryRow
+              label="Contract size"
+              value={`${instrument.contractSize.toLocaleString('en-US')} / lot`}
+            />
             <Divider />
-            <SummaryRow label="Leverage" value={`1:${LEVERAGE}`} />
+            <SummaryRow label="Leverage" value={`1:${account.leverage}`} />
           </Card>
         </Gutter>
 
         <Gutter>
           <Text variant="caption" color={colors.textMuted} style={styles.disclaimer}>
-            Order placement is disabled in this build. Confirmation is required before any order
-            reaches the trading API.
+            Every order passes through a confirmation step before it reaches the trading API.
           </Text>
         </Gutter>
       </ScrollView>
 
       <Gutter style={styles.actions}>
-        <Button tone="ink" style={styles.action} onPress={() => navigate('Instrument', { instrumentId })}>
+        <Button
+          tone="ink"
+          style={styles.action}
+          onPress={() => openOrderTicket(instrument.id, 'Sell')}
+        >
           <ButtonText tone="ink">Sell</ButtonText>
-          <ButtonSubText tone="ink">{formatPrice(instrument.bid, instrument.precision)}</ButtonSubText>
+          <ButtonSubText tone="ink">
+            {formatPrice(instrument.bid, instrument.precision)}
+          </ButtonSubText>
         </Button>
-        <Button tone="gold" style={styles.action} onPress={() => navigate('Instrument', { instrumentId })}>
+        <Button
+          tone="gold"
+          style={styles.action}
+          onPress={() => openOrderTicket(instrument.id, 'Buy')}
+        >
           <ButtonText tone="gold">Buy</ButtonText>
-          <ButtonSubText tone="gold">{formatPrice(instrument.ask, instrument.precision)}</ButtonSubText>
+          <ButtonSubText tone="gold">
+            {formatPrice(instrument.ask, instrument.precision)}
+          </ButtonSubText>
         </Button>
       </Gutter>
     </Screen>
   )
 }
 
-function Stepper({ label, onPress }: { label: string; onPress: () => void }) {
+function Stepper({
+  label,
+  accessibilityLabel,
+  onPress,
+}: {
+  label: string
+  accessibilityLabel: string
+  onPress: () => void
+}) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.stepperButton}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={styles.stepperButton}
+    >
       <Text variant="heading">{label}</Text>
     </Pressable>
   )
@@ -171,11 +213,6 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** Keeps lot sizes free of binary floating-point drift in the display. */
-function round(value: number) {
-  return Math.round(value * 100) / 100
-}
-
 const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
@@ -187,9 +224,10 @@ const styles = StyleSheet.create({
   accountPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     height: 44,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    paddingRight: 12,
     borderRadius: radius.pill,
     borderCurve: 'continuous',
     borderWidth: 1,
@@ -197,13 +235,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   content: {
-    paddingBottom: 24,
+    paddingBottom: 20,
     gap: 14,
   },
   instrument: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     padding: 14,
     borderRadius: 20,
   },

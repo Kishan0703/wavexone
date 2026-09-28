@@ -14,15 +14,19 @@ import {
   Watermark,
   colors,
   radius,
+  useActionMenu,
 } from '../design-system'
 import { PositionCard } from '../features/positions/position-card'
-import { account, instrumentsById, positions } from '../data/mock'
-import { formatSignedMoney } from '../data/format'
+import { instrumentsById, positions, positionsById } from '../data/mock'
+import { formatLots, formatSignedMoney } from '../data/format'
+import { selectAccount, useSession } from '../data/store'
 import type { Position } from '../data/types'
+import { useAppNavigation } from '../navigation/use-app-navigation'
 
 const TABS = ['Open', 'Pending', 'Closed'] as const
+type Tab = (typeof TABS)[number]
 
-const ACTION_LABEL: Record<(typeof TABS)[number], string> = {
+const ACTION_LABEL: Record<Tab, string> = {
   Open: 'Close position',
   Pending: 'Cancel order',
   Closed: 'View details',
@@ -30,15 +34,61 @@ const ACTION_LABEL: Record<(typeof TABS)[number], string> = {
 
 /** Positions tab: floating P&L, state filter, and the position cards. */
 export function PositionsScreen() {
-  const [tab, setTab] = useState<(typeof TABS)[number]>('Open')
+  const [tab, setTab] = useState<Tab>('Open')
+  const showMenu = useActionMenu()
+  const { openInstrument, openAccountSwitcher, openOrderTicket } = useAppNavigation()
+
+  const account = useSession(selectAccount)
 
   const rows = positions.filter((item) => item.state === tab)
   const openCount = positions.filter((item) => item.state === 'Open').length
 
-  // Confirmation is required before anything reaches the trading API, so the
-  // footer button is a no-op until that flow exists.
-  const onAction = (_id: string) => {}
-  const onMenu = (_id: string) => {}
+  /**
+   * Closing, cancelling and bulk actions all need a confirmation step and a
+   * staging environment before they can run — see the integration guide §6.8.
+   */
+  const confirmAction = (id: string) => {
+    const position = positionsById.get(id)
+    const instrument = position ? instrumentsById.get(position.instrumentId) : undefined
+    if (!position || !instrument) return
+
+    if (tab === 'Closed') {
+      openInstrument(position.instrumentId)
+      return
+    }
+
+    showMenu({
+      title: `${ACTION_LABEL[tab]} — ${instrument.symbol}`,
+      message: `${position.side} ${formatLots(position.lots)} · ${formatSignedMoney(position.pnl)}. Trading mutations are disabled in this build.`,
+      options: [
+        { label: ACTION_LABEL[tab], destructive: true },
+        { label: 'View chart', onSelect: () => openInstrument(position.instrumentId) },
+      ],
+    })
+  }
+
+  const openRowMenu = (id: string) => {
+    const position = positionsById.get(id)
+    const instrument = position ? instrumentsById.get(position.instrumentId) : undefined
+    if (!position || !instrument) return
+
+    showMenu({
+      title: instrument.symbol,
+      message: `${position.side} ${formatLots(position.lots)}`,
+      options: [
+        { label: 'View chart', onSelect: () => openInstrument(position.instrumentId) },
+        {
+          label: 'Modify stop loss / take profit',
+          onSelect: () => openOrderTicket(position.instrumentId, position.side),
+        },
+        {
+          label: ACTION_LABEL[tab],
+          destructive: tab !== 'Closed',
+          onSelect: () => confirmAction(id),
+        },
+      ],
+    })
+  }
 
   const renderItem = ({ item }: { item: Position }) => {
     const instrument = instrumentsById.get(item.instrumentId)
@@ -59,8 +109,9 @@ export function PositionsScreen() {
         precision={instrument.precision}
         pnl={item.pnl}
         actionLabel={ACTION_LABEL[tab]}
-        onAction={onAction}
-        onMenu={onMenu}
+        onAction={confirmAction}
+        onMenu={openRowMenu}
+        onPress={() => openInstrument(item.instrumentId)}
       />
     )
   }
@@ -69,7 +120,12 @@ export function PositionsScreen() {
     <Screen>
       <Gutter style={styles.titleRow}>
         <Text variant="title">Positions</Text>
-        <Pressable accessibilityRole="button" style={styles.accountPill}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Switch account"
+          onPress={openAccountSwitcher}
+          style={styles.accountPill}
+        >
           <Text variant="body">
             {account.mode} · {account.number}
           </Text>
@@ -110,7 +166,7 @@ export function PositionsScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text variant="body" color={colors.textMuted}>
-              Nothing here yet.
+              No {tab.toLowerCase()} positions on this account.
             </Text>
           </View>
         }
@@ -175,6 +231,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     paddingTop: 40,
+    paddingHorizontal: 24,
     alignItems: 'center',
   },
 })

@@ -1,0 +1,37 @@
+import { create } from 'zustand'
+
+import { instruments } from './mock'
+
+export type OrderType = 'Market' | 'Limit' | 'Stop'
+
+type TradeDraftState = {
+  instrumentId: string
+  orderType: OrderType
+  lots: number
+
+  setInstrumentId: (instrumentId: string) => void
+  setOrderType: (orderType: OrderType) => void
+  setLots: (updater: (previous: number) => number) => void
+}
+
+/**
+ * The Trade tab's in-progress ticket.
+ *
+ * It lives outside the screen because the instrument picker is presented as a
+ * sheet on the root stack — passing a callback through route params would
+ * make the navigation state non-serialisable.
+ */
+export const useTradeDraft = create<TradeDraftState>((set) => ({
+  instrumentId: instruments[0].id,
+  orderType: 'Market',
+  lots: 0.5,
+
+  setInstrumentId: (instrumentId) => set({ instrumentId }),
+  setOrderType: (orderType) => set({ orderType }),
+  setLots: (updater) => set((state) => ({ lots: Math.max(0.01, round(updater(state.lots))) })),
+}))
+
+/** Keeps lot sizes free of binary floating-point drift in the display. */
+function round(value: number) {
+  return Math.round(value * 100) / 100
+}

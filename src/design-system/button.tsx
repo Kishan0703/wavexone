@@ -13,6 +13,7 @@ export type ButtonProps = {
   children: React.ReactNode
   style?: StyleProp<ViewStyle>
   disabled?: boolean
+  accessibilityLabel?: string
 }
 
 /**
@@ -20,9 +21,21 @@ export type ButtonProps = {
  * `ButtonText` / `ButtonSubText` / `ButtonIcon` own their own rendering.
  * Nothing here accepts a bare string, so text always lands inside `<Text>`.
  */
-export function Button({ tone = 'ink', onPress, children, style, disabled }: ButtonProps) {
+export function Button({
+  tone = 'ink',
+  onPress,
+  children,
+  style,
+  disabled,
+  accessibilityLabel,
+}: ButtonProps) {
   return (
-    <PressableScale onPress={onPress} disabled={disabled} style={style}>
+    <PressableScale
+      onPress={onPress}
+      disabled={disabled}
+      style={style}
+      accessibilityLabel={accessibilityLabel}
+    >
       <View style={[styles.base, tones[tone], disabled ? styles.disabled : null]}>{children}</View>
     </PressableScale>
   )

@@ -20,17 +20,11 @@ import {
   radius,
 } from '../design-system'
 import { PriceChart } from '../features/chart/price-chart'
-import {
-  instruments,
-  instrumentsById,
-  timeframes,
-  xauCursorClose,
-  xauCursorIndex,
-  xauCursorOpen,
-  xauMonths,
-  xauSeries,
-} from '../data/mock'
+import { instruments, instrumentsById, timeframes, xauChart } from '../data/mock'
 import { directionOf, formatPercent, formatPrice } from '../data/format'
+import { useSession } from '../data/store'
+import type { Timeframe } from '../data/types'
+import { useAppNavigation } from '../navigation/use-app-navigation'
 import type { RootStackParamList } from '../navigation/types'
 
 type InstrumentRoute = RouteProp<RootStackParamList, 'Instrument'>
@@ -39,11 +33,17 @@ type InstrumentRoute = RouteProp<RootStackParamList, 'Instrument'>
 export function InstrumentScreen() {
   const { goBack } = useNavigation()
   const { params } = useRoute<InstrumentRoute>()
-  const [timeframe, setTimeframe] = useState<(typeof timeframes)[number]>('1M')
-  const [favorite, setFavorite] = useState(false)
+  const { openOrderTicket } = useAppNavigation()
+
+  const [timeframe, setTimeframe] = useState<Timeframe>('1M')
 
   const instrument = instrumentsById.get(params.instrumentId) ?? instruments[0]
   const direction = directionOf(instrument.changePercent)
+
+  const isFavorite = useSession((state) => state.favorites.has(instrument.id))
+  const toggleFavorite = useSession((state) => state.toggleFavorite)
+
+  const chart = xauChart[timeframe]
 
   return (
     <Screen>
@@ -62,10 +62,10 @@ export function InstrumentScreen() {
         </View>
 
         <CircleButton
-          onPress={() => setFavorite((previous) => !previous)}
-          accessibilityLabel={favorite ? 'Remove from favourites' : 'Add to favourites'}
+          onPress={() => toggleFavorite(instrument.id)}
+          accessibilityLabel={isFavorite ? 'Remove from favourites' : 'Add to favourites'}
         >
-          <StarIcon size={22} color={favorite ? colors.gold : colors.text} filled={favorite} />
+          <StarIcon size={22} color={isFavorite ? colors.gold : colors.text} filled={isFavorite} />
         </CircleButton>
       </Gutter>
 
@@ -73,7 +73,12 @@ export function InstrumentScreen() {
         <Gutter>
           <View style={styles.quote}>
             <View style={styles.quoteMark} pointerEvents="none">
-              <AssetIcon kind={instrument.icon} tint={QUOTE_MARK_TINT} size={96} label={instrument.iconLabel} />
+              <AssetIcon
+                kind={instrument.icon}
+                tint={QUOTE_MARK_TINT}
+                size={96}
+                label={instrument.iconLabel}
+              />
             </View>
 
             <View style={styles.quoteIdentity}>
@@ -112,26 +117,33 @@ export function InstrumentScreen() {
 
         <Gutter style={styles.chart}>
           <PriceChart
-            series={xauSeries}
-            months={xauMonths}
-            cursorIndex={xauCursorIndex}
-            cursorOpen={xauCursorOpen}
-            cursorClose={xauCursorClose}
-            min={2000}
-            max={2600}
-            step={100}
+            // Remounting per timeframe keeps the plot's measured size honest
+            // when the axis gutter width changes with longer labels.
+            key={timeframe}
+            series={chart.points}
+            months={chart.labels}
+            cursorIndex={chart.cursorIndex}
+            cursorOpen={chart.cursorOpen}
+            cursorClose={chart.cursorClose}
+            min={chart.min}
+            max={chart.max}
+            step={chart.step}
           />
         </Gutter>
       </View>
 
       <Gutter style={styles.actions}>
-        <Button tone="ink" style={styles.action}>
+        <Button tone="ink" style={styles.action} onPress={() => openOrderTicket(instrument.id, 'Sell')}>
           <ButtonText tone="ink">Sell</ButtonText>
-          <ButtonSubText tone="ink">{formatPrice(instrument.bid, instrument.precision)}</ButtonSubText>
+          <ButtonSubText tone="ink">
+            {formatPrice(instrument.bid, instrument.precision)}
+          </ButtonSubText>
         </Button>
-        <Button tone="gold" style={styles.action}>
+        <Button tone="gold" style={styles.action} onPress={() => openOrderTicket(instrument.id, 'Buy')}>
           <ButtonText tone="gold">Buy</ButtonText>
-          <ButtonSubText tone="gold">{formatPrice(instrument.ask, instrument.precision)}</ButtonSubText>
+          <ButtonSubText tone="gold">
+            {formatPrice(instrument.ask, instrument.precision)}
+          </ButtonSubText>
         </Button>
       </Gutter>
     </Screen>

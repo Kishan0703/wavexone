@@ -11,8 +11,8 @@ import {
   Delta,
   Divider,
   Gutter,
-  PressableScale,
   Pressable,
+  PressableScale,
   Screen,
   TAB_BAR_CLEARANCE,
   Text,
@@ -21,8 +21,10 @@ import {
   colors,
 } from '../design-system'
 import { SectionHeader } from '../features/shared/section-header'
-import { account, instrumentsById, signals } from '../data/mock'
+import { instrumentsById, profile, signals } from '../data/mock'
 import { directionOf, formatMoney, formatPercent } from '../data/format'
+import { selectAccount, selectUnreadCount, useSession } from '../data/store'
+import { useAppNavigation } from '../navigation/use-app-navigation'
 import type { HomeStackParamList } from '../navigation/types'
 
 type Navigation = NativeStackNavigationProp<HomeStackParamList, 'Dashboard'>
@@ -30,6 +32,11 @@ type Navigation = NativeStackNavigationProp<HomeStackParamList, 'Dashboard'>
 /** Home tab: greeting, portfolio summary, two stat tiles and the signal feed. */
 export function HomeScreen() {
   const { navigate } = useNavigation<Navigation>()
+  const { openInstrument, openTab } = useAppNavigation()
+
+  const account = useSession(selectAccount)
+  const unread = useSession(selectUnreadCount)
+
   const signal = signals[0]
   const signalInstrument = instrumentsById.get(signal.instrumentId)
 
@@ -44,15 +51,28 @@ export function HomeScreen() {
           <Text variant="heading" weight="regular" style={styles.greeting}>
             Hello,{' '}
             <Text variant="heading" weight="extrabold" style={styles.greeting}>
-              {account.holder.split(' ')[0]}!
+              {profile.holder.split(' ')[0]}!
             </Text>
           </Text>
+
           <View style={styles.greetingActions}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Notifications" hitSlop={8}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+              hitSlop={8}
+              onPress={() => navigate('Notifications')}
+            >
               <BellIcon size={26} color={colors.text} />
-              <View style={styles.bellDot} />
+              {unread > 0 ? <View style={styles.bellDot} /> : null}
             </Pressable>
-            <Avatar uri={account.avatarUrl} size={48} />
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open account"
+              onPress={() => openTab('More')}
+            >
+              <Avatar uri={profile.avatarUrl} size={48} />
+            </Pressable>
           </View>
         </Gutter>
 
@@ -126,41 +146,47 @@ export function HomeScreen() {
         </Gutter>
 
         <Gutter style={styles.section}>
-          <SectionHeader title="Trading Signals" action="See more" />
+          <SectionHeader
+            title="Trading Signals"
+            action="See more"
+            onPressAction={() => navigate('Signals')}
+          />
         </Gutter>
 
         <Gutter>
-          <Card style={styles.signal}>
-            <View style={styles.signalHeader}>
-              {signalInstrument ? (
-                <AssetIcon
-                  kind={signalInstrument.icon}
-                  label={signalInstrument.iconLabel}
-                  tint={signalInstrument.iconTint}
-                  size={40}
-                />
-              ) : null}
-              <View style={styles.signalIdentity}>
-                <Text variant="strong">{signalInstrument?.symbol}</Text>
+          <PressableScale scaleTo={0.99} onPress={() => openInstrument(signal.instrumentId)}>
+            <Card style={styles.signal}>
+              <View style={styles.signalHeader}>
+                {signalInstrument ? (
+                  <AssetIcon
+                    kind={signalInstrument.icon}
+                    label={signalInstrument.iconLabel}
+                    tint={signalInstrument.iconTint}
+                    size={40}
+                  />
+                ) : null}
+                <View style={styles.signalIdentity}>
+                  <Text variant="strong">{signalInstrument?.symbol}</Text>
+                  <Text variant="caption" color={colors.textMuted}>
+                    {signalInstrument?.description}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.signalHeadline}>{signal.headline}</Text>
+
+              <Divider />
+
+              <View style={styles.signalFooter}>
                 <Text variant="caption" color={colors.textMuted}>
-                  {signalInstrument?.description}
+                  {signal.date}
+                </Text>
+                <Text variant="caption" color={colors.textMuted}>
+                  {signal.source}
                 </Text>
               </View>
-            </View>
-
-            <Text style={styles.signalHeadline}>{signal.headline}</Text>
-
-            <Divider />
-
-            <View style={styles.signalFooter}>
-              <Text variant="caption" color={colors.textMuted}>
-                {signal.date}
-              </Text>
-              <Text variant="caption" color={colors.textMuted}>
-                {signal.source}
-              </Text>
-            </View>
-          </Card>
+            </Card>
+          </PressableScale>
         </Gutter>
       </ScrollView>
     </Screen>

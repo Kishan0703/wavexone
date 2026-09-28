@@ -1,4 +1,14 @@
-import type { Account, ActivityEntry, Instrument, Position, Signal } from './types'
+import type {
+  Account,
+  ActivityEntry,
+  ChartSeries,
+  Instrument,
+  Notification,
+  Position,
+  Profile,
+  Signal,
+  Timeframe,
+} from './types'
 
 /**
  * Fixtures. Values, names and dates are taken from the design mockups so the
@@ -9,24 +19,72 @@ import type { Account, ActivityEntry, Instrument, Position, Signal } from './typ
  * screens only consume the types in `./types`.
  */
 
-export const account: Account = {
+export const profile: Profile = {
   holder: 'Jonathan Reed',
   // Remote portrait stands in for the avatar returned by `getuser`.
   // Requested at 2x the 96pt display size.
   avatarUrl:
     'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=facearea&facepad=2.6&w=200&h=200&q=80',
-  mode: 'LIVE',
-  number: 'WX012345',
+  email: 'j.reed@example.com',
+  phone: '+44 7700 900412',
+  country: 'United Kingdom',
   verified: true,
-  equity: 24860.4,
-  changePercent: 4.31,
-  asOf: 'December 21, 2022',
-  floatingPnl: 182.7,
-  openPositions: 2,
-  monthNetResult: 1284.6,
-  monthTrades: 48,
-  monthWinRate: 62,
+  kycStatus: 'Verified',
 }
+
+export const accounts: readonly Account[] = [
+  {
+    id: 'wx012345',
+    mode: 'LIVE',
+    number: 'WX012345',
+    currency: 'USD',
+    leverage: 200,
+    equity: 24860.4,
+    balance: 24677.7,
+    freeMargin: 21883.94,
+    changePercent: 4.31,
+    asOf: 'December 21, 2022',
+    floatingPnl: 182.7,
+    openPositions: 2,
+    monthNetResult: 1284.6,
+    monthTrades: 48,
+    monthWinRate: 62,
+  },
+  {
+    id: 'wx012346',
+    mode: 'LIVE',
+    number: 'WX012346',
+    currency: 'USD',
+    leverage: 100,
+    equity: 8420.15,
+    balance: 8420.15,
+    freeMargin: 8420.15,
+    changePercent: -0.62,
+    asOf: 'December 21, 2022',
+    floatingPnl: 0,
+    openPositions: 0,
+    monthNetResult: -118.4,
+    monthTrades: 11,
+    monthWinRate: 45,
+  },
+  {
+    id: 'wxd90001',
+    mode: 'DEMO',
+    number: 'WXD90001',
+    currency: 'USD',
+    leverage: 500,
+    equity: 100000,
+    balance: 100000,
+    freeMargin: 100000,
+    changePercent: 0,
+    asOf: 'December 21, 2022',
+    floatingPnl: 0,
+    openPositions: 0,
+    monthNetResult: 0,
+    monthTrades: 0,
+    monthWinRate: 0,
+  },
+]
 
 export const instruments: readonly Instrument[] = [
   {
@@ -43,6 +101,7 @@ export const instruments: readonly Instrument[] = [
     spark: [12, 10, 16, 14, 22, 19, 27, 24, 30, 26, 33, 31, 38, 35, 42, 46],
     category: 'Metals',
     favorite: true,
+    contractSize: 100,
   },
   {
     id: 'eurusd',
@@ -60,6 +119,7 @@ export const instruments: readonly Instrument[] = [
     sparkTone: 'negative',
     category: 'Forex',
     favorite: true,
+    contractSize: 100000,
   },
   {
     id: 'btcusd',
@@ -75,6 +135,7 @@ export const instruments: readonly Instrument[] = [
     spark: [8, 12, 10, 18, 15, 24, 20, 29, 26, 34, 30, 38, 34, 42, 40, 47],
     category: 'Crypto',
     favorite: true,
+    contractSize: 1,
   },
   {
     id: 'gbpusd',
@@ -93,6 +154,7 @@ export const instruments: readonly Instrument[] = [
     sparkTone: 'negative',
     category: 'Forex',
     favorite: false,
+    contractSize: 100000,
   },
   {
     id: 'usdjpy',
@@ -110,6 +172,7 @@ export const instruments: readonly Instrument[] = [
     spark: [10, 14, 12, 19, 16, 23, 21, 27, 24, 31, 28, 35, 32, 39, 37, 43],
     category: 'Forex',
     favorite: false,
+    contractSize: 100000,
   },
   {
     id: 'xagusd',
@@ -125,6 +188,7 @@ export const instruments: readonly Instrument[] = [
     spark: [14, 11, 17, 15, 21, 18, 25, 22, 28, 25, 32, 29, 36, 33, 40, 44],
     category: 'Metals',
     favorite: false,
+    contractSize: 5000,
   },
   {
     id: 'ethusd',
@@ -141,6 +205,7 @@ export const instruments: readonly Instrument[] = [
     sparkTone: 'negative',
     category: 'Crypto',
     favorite: false,
+    contractSize: 1,
   },
   {
     id: 'usoil',
@@ -156,6 +221,7 @@ export const instruments: readonly Instrument[] = [
     spark: [18, 15, 21, 19, 24, 21, 27, 25, 30, 27, 33, 31, 36, 34, 39, 42],
     category: 'Energy',
     favorite: false,
+    contractSize: 1000,
   },
 ]
 
@@ -206,6 +272,8 @@ export const positions: readonly Position[] = [
     state: 'Closed',
   },
 ]
+
+export const positionsById = new Map(positions.map((item) => [item.id, item]))
 
 export const activity: readonly ActivityEntry[] = [
   {
@@ -280,11 +348,14 @@ export const activity: readonly ActivityEntry[] = [
   },
 ]
 
+export const activityById = new Map(activity.map((item) => [item.id, item]))
+
 export const signals: readonly Signal[] = [
   {
     id: 's-1',
     instrumentId: 'xauusd',
     headline: 'Gold holds above key support as markets await data.',
+    body: 'Bullion has defended the 2,340 area through three sessions. A close above 2,400 would open the prior high; losing 2,320 puts the range floor back in play.',
     date: 'Nov 21, 2022',
     source: 'WaveX Insight',
   },
@@ -292,16 +363,60 @@ export const signals: readonly Signal[] = [
     id: 's-2',
     instrumentId: 'eurusd',
     headline: 'Euro steadies into the close as yields drift lower.',
+    body: 'Front-end spreads narrowed for a second day. Momentum is neutral into the release; the pair has traded inside 1.0790–1.0870 all week.',
     date: 'Nov 20, 2022',
+    source: 'WaveX Insight',
+  },
+  {
+    id: 's-3',
+    instrumentId: 'btcusd',
+    headline: 'Bitcoin grinds higher on thinning weekend volume.',
+    body: 'Spot has added 1.1% while order-book depth stays light. Treat breakouts on this volume profile with caution.',
+    date: 'Nov 19, 2022',
     source: 'WaveX Insight',
   },
 ]
 
+export const notifications: readonly Notification[] = [
+  {
+    id: 'n-1',
+    kind: 'price',
+    title: 'XAU/USD reached 2,387.00',
+    body: 'Your price alert for Gold has triggered.',
+    time: '14:36',
+  },
+  {
+    id: 'n-2',
+    kind: 'order',
+    title: 'Order filled — XAU/USD Buy 0.50',
+    body: 'Filled at 2,340.10. Position is now open.',
+    time: '14:32',
+  },
+  {
+    id: 'n-3',
+    kind: 'funds',
+    title: 'Deposit completed',
+    body: '$1,000.00 has been credited to WX012345.',
+    time: '10:15',
+  },
+  {
+    id: 'n-4',
+    kind: 'news',
+    title: 'Weekly market outlook is available',
+    body: 'Three setups to watch across metals and FX.',
+    time: 'Yesterday',
+  },
+]
+
+/* ------------------------------------------------------------------ */
+/* Chart data                                                          */
+/* ------------------------------------------------------------------ */
+
 /**
  * Daily closes for the XAU/USD detail chart, August through December.
- * Index 52 is the value the crosshair reads, matching the mockup.
+ * Index 52 is the value the crosshair reads, matching the mockup exactly.
  */
-export const xauSeries: readonly number[] = [
+const XAU_MONTHLY: readonly number[] = [
   2212, 2206, 2222, 2216, 2234, 2246, 2240, 2258, 2272, 2266, 2284, 2298, 2292, 2310, 2326, 2342,
   2334, 2352, 2370, 2362, 2384, 2404, 2424, 2440, 2444, 2430, 2436, 2412, 2394, 2400, 2378, 2366,
   2372, 2350, 2338, 2344, 2322, 2308, 2314, 2292, 2278, 2266, 2262, 2274, 2286, 2280, 2296, 2310,
@@ -309,10 +424,86 @@ export const xauSeries: readonly number[] = [
   2490, 2504, 2498, 2514, 2524, 2508,
 ]
 
-/** The point the crosshair sits on. */
-export const xauCursorIndex = 52
-export const xauCursorOpen = 2379.1
-export const xauCursorClose = 2387.42
+/**
+ * Deterministic walk so every render — and every reviewer — sees the same
+ * chart. A real client replaces this with `charting_library_cloned_data`.
+ */
+function walk(seed: number, count: number, start: number, drift: number, swing: number) {
+  let state = seed
+  const random = () => {
+    state = (state * 1103515245 + 12345) % 2147483648
+    return state / 2147483648
+  }
 
-export const xauMonths = ['Aug', 'Sept', 'Oct', 'Nov', 'Dec'] as const
-export const timeframes = ['1D', '5D', '1W', '1M', '3M', '6M'] as const
+  const points: number[] = []
+  let value = start
+  for (let index = 0; index < count; index++) {
+    value += drift + (random() - 0.5) * swing
+    points.push(Math.round(value * 100) / 100)
+  }
+  return points
+}
+
+/** Rounds the axis outward to the nearest step so labels stay whole. */
+function bounds(points: readonly number[], step: number) {
+  const min = Math.floor(Math.min(...points) / step) * step
+  const max = Math.ceil(Math.max(...points) / step) * step
+  return { min, max }
+}
+
+function buildSeries(
+  points: readonly number[],
+  labels: readonly string[],
+  step: number,
+  cursorIndex: number,
+  cursorOpen?: number,
+): ChartSeries {
+  const close = points[cursorIndex] ?? points[points.length - 1]
+  return {
+    points,
+    labels,
+    cursorIndex,
+    cursorOpen: cursorOpen ?? Math.round((close - 8.32) * 100) / 100,
+    cursorClose: close,
+    ...bounds(points, step),
+    step,
+  }
+}
+
+const INTRADAY = walk(7, 48, 2372, 0.34, 9)
+const FIVE_DAY = walk(19, 60, 2352, 0.62, 14)
+const ONE_WEEK = walk(31, 56, 2344, 0.82, 16)
+const THREE_MONTH = walk(53, 78, 2180, 4.4, 34)
+const SIX_MONTH = walk(71, 90, 1990, 4.6, 46)
+
+/**
+ * The 1M entry is the hand-tuned series from the mockup — same shape, same
+ * crosshair values, same month labels. The others are generated.
+ */
+export const xauChart: Readonly<Record<Timeframe, ChartSeries>> = {
+  '1D': buildSeries(INTRADAY, ['09:00', '11:00', '13:00', '15:00', '17:00'], 20, 34),
+  '5D': buildSeries(FIVE_DAY, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], 25, 43),
+  '1W': buildSeries(ONE_WEEK, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'], 25, 40),
+  '1M': {
+    points: XAU_MONTHLY,
+    labels: ['Aug', 'Sept', 'Oct', 'Nov', 'Dec'],
+    cursorIndex: 52,
+    cursorOpen: 2379.1,
+    cursorClose: 2387.42,
+    min: 2000,
+    max: 2600,
+    step: 100,
+  },
+  '3M': buildSeries(THREE_MONTH, ['Oct', 'Nov', 'Dec'], 100, 56),
+  '6M': buildSeries(SIX_MONTH, ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], 100, 64),
+}
+
+export const timeframes: readonly Timeframe[] = ['1D', '5D', '1W', '1M', '3M', '6M']
+
+/** Deposit methods and withdrawal destinations, shaped like `apiRedeemConfig`. */
+export const fundingMethods = {
+  deposit: ['Card', 'Bank transfer', 'Crypto (USDT)'],
+  withdraw: ['Bank transfer', 'Crypto (USDT)'],
+} as const
+
+export const quickAmounts: readonly number[] = [100, 500, 1000, 5000]

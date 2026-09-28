@@ -7,7 +7,11 @@ import { ActivityScreen } from '../screens/activity-screen'
 import { BalanceScreen } from '../screens/balance-screen'
 import { HomeScreen } from '../screens/home-screen'
 import { MarketsScreen } from '../screens/markets-screen'
+import { NotificationsScreen } from '../screens/notifications-screen'
 import { PositionsScreen } from '../screens/positions-screen'
+import { ProfileScreen } from '../screens/profile-screen'
+import { SettingsScreen } from '../screens/settings-screen'
+import { SignalsScreen } from '../screens/signals-screen'
 import { TradeScreen } from '../screens/trade-screen'
 import { TabBar } from './tab-bar'
 import type { HomeStackParamList, MoreStackParamList, TabParamList } from './types'
@@ -21,22 +25,25 @@ const STACK_OPTIONS = {
   contentStyle: { backgroundColor: colors.bg },
 } as const
 
-/** Balance keeps the tab bar visible, so it is pushed inside the Home tab. */
+/** Screens pushed here keep the tab bar visible, as the mockups show. */
 function HomeStackNavigator() {
   return (
     <HomeStack.Navigator screenOptions={STACK_OPTIONS}>
       <HomeStack.Screen name="Dashboard" component={HomeScreen} />
       <HomeStack.Screen name="Balance" component={BalanceScreen} />
+      <HomeStack.Screen name="Notifications" component={NotificationsScreen} />
+      <HomeStack.Screen name="Signals" component={SignalsScreen} />
     </HomeStack.Navigator>
   )
 }
 
-/** Same for Activity, which the account menu reaches through Funds. */
 function MoreStackNavigator() {
   return (
     <MoreStack.Navigator screenOptions={STACK_OPTIONS}>
       <MoreStack.Screen name="Account" component={AccountScreen} />
       <MoreStack.Screen name="Activity" component={ActivityScreen} />
+      <MoreStack.Screen name="Profile" component={ProfileScreen} />
+      <MoreStack.Screen name="Settings" component={SettingsScreen} />
     </MoreStack.Navigator>
   )
 }

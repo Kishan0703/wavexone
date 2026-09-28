@@ -6,11 +6,13 @@ import {
   Delta,
   PressableScale,
   Sparkline,
+  StarIcon,
   Text,
   colors,
   type AssetIconKind,
 } from '../../design-system'
 import { directionOf, formatPercent, formatPrice } from '../../data/format'
+import { useSession } from '../../data/store'
 
 export type MarketRowProps = {
   id: string
@@ -25,13 +27,18 @@ export type MarketRowProps = {
   spark: readonly number[]
   sparkTone?: 'positive' | 'negative'
   onPress: (id: string) => void
+  onLongPress?: (id: string) => void
+  /** Draws the favourite marker; off on Market Watch, on in the catalogue. */
+  showFavorite?: boolean
 }
 
 /**
  * One Market Watch row: badge, symbol, trend line, price and change.
  *
  * Receives primitives so the list can skip rows whose values are unchanged,
- * and derives its colours locally rather than taking style objects as props.
+ * derives its colours locally rather than taking style objects as props, and
+ * reads its own favourite flag from the store so toggling one row re-renders
+ * that row alone.
  */
 export function MarketRow({
   id,
@@ -46,27 +53,43 @@ export function MarketRow({
   spark,
   sparkTone,
   onPress,
+  onLongPress,
+  showFavorite = false,
 }: MarketRowProps) {
   const direction = directionOf(changePercent)
-  const sparkColor = (sparkTone ?? (direction === 'up' ? 'positive' : 'negative')) === 'positive'
-    ? colors.green
-    : colors.red
+  const sparkColor =
+    (sparkTone ?? (direction === 'up' ? 'positive' : 'negative')) === 'positive'
+      ? colors.green
+      : colors.red
 
   return (
-    <PressableScale onPress={() => onPress(id)} scaleTo={0.985}>
+    <PressableScale
+      onPress={() => onPress(id)}
+      onLongPress={onLongPress ? () => onLongPress(id) : undefined}
+      scaleTo={0.985}
+    >
       <Card style={styles.card}>
         <AssetIcon kind={iconKind} label={iconLabel} tint={iconTint} size={40} />
 
         <View style={styles.identity}>
-          <Text variant="strong" numberOfLines={1}>
-            {symbol}
-          </Text>
+          <View style={styles.symbolRow}>
+            <Text variant="strong" numberOfLines={1}>
+              {symbol}
+            </Text>
+            {showFavorite ? <FavoriteMark id={id} /> : null}
+          </View>
           <Text variant="caption" color={colors.textMuted} numberOfLines={1}>
             {name}
           </Text>
         </View>
 
-        <Sparkline points={spark} color={sparkColor} gradientId={`spark-${id}`} width={68} height={40} />
+        <Sparkline
+          points={spark}
+          color={sparkColor}
+          gradientId={`spark-${id}`}
+          width={68}
+          height={40}
+        />
 
         <View style={styles.quote}>
           <Text variant="strong">{formatPrice(price, precision)}</Text>
@@ -75,6 +98,13 @@ export function MarketRow({
       </Card>
     </PressableScale>
   )
+}
+
+/** Subscribes to a single id rather than the whole favourites set. */
+function FavoriteMark({ id }: { id: string }) {
+  const isFavorite = useSession((state) => state.favorites.has(id))
+  if (!isFavorite) return null
+  return <StarIcon size={13} color={colors.gold} filled />
 }
 
 const styles = StyleSheet.create({
@@ -89,6 +119,11 @@ const styles = StyleSheet.create({
   identity: {
     flex: 1,
     gap: 3,
+  },
+  symbolRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   quote: {
     width: 88,

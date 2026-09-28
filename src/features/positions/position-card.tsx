@@ -9,6 +9,7 @@ import {
   Divider,
   MoreVerticalIcon,
   Pressable,
+  PressableScale,
   Text,
   colors,
   type AssetIconKind,
@@ -32,6 +33,8 @@ export type PositionCardProps = {
   actionLabel: string
   onAction: (id: string) => void
   onMenu: (id: string) => void
+  /** Opens the instrument. */
+  onPress?: () => void
 }
 
 /** A single open / pending / closed position. */
@@ -51,27 +54,30 @@ export function PositionCard({
   actionLabel,
   onAction,
   onMenu,
+  onPress,
 }: PositionCardProps) {
   return (
     <Card style={styles.card}>
-      <View style={styles.header}>
-        <AssetIcon kind={iconKind} label={iconLabel} tint={iconTint} size={42} />
-        <View style={styles.identity}>
-          <Text variant="strong">{symbol}</Text>
-          <Text variant="caption" color={colors.textMuted}>
-            {description}
-          </Text>
+      <PressableScale onPress={onPress} onLongPress={() => onMenu(id)} scaleTo={0.995}>
+        <View style={styles.header}>
+          <AssetIcon kind={iconKind} label={iconLabel} tint={iconTint} size={42} />
+          <View style={styles.identity}>
+            <Text variant="strong">{symbol}</Text>
+            <Text variant="caption" color={colors.textMuted}>
+              {description}
+            </Text>
+          </View>
+          <Badge tone={side === 'Buy' ? 'buy' : 'sell'}>{side}</Badge>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`More actions for ${symbol}`}
+            hitSlop={10}
+            onPress={() => onMenu(id)}
+          >
+            <MoreVerticalIcon size={20} color={colors.text} />
+          </Pressable>
         </View>
-        <Badge tone={side === 'Buy' ? 'buy' : 'sell'}>{side}</Badge>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`More actions for ${symbol}`}
-          hitSlop={10}
-          onPress={() => onMenu(id)}
-        >
-          <MoreVerticalIcon size={20} color={colors.text} />
-        </Pressable>
-      </View>
+      </PressableScale>
 
       <Divider />
 

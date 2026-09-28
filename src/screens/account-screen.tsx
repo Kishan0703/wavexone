@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { ScrollView, StyleSheet, View } from 'react-native'
+import { Linking, ScrollView, StyleSheet, View } from 'react-native'
 
 import {
   Avatar,
@@ -10,10 +10,12 @@ import {
   ExternalLinkIcon,
   Gutter,
   HeadsetIcon,
+  ListGroup,
+  ListRow,
   Logo,
   LogoutIcon,
   MarketsIcon,
-  Pressable,
+  PressableScale,
   Screen,
   SettingsIcon,
   SwapIcon,
@@ -23,17 +25,95 @@ import {
   VerifiedIcon,
   WalletIcon,
   colors,
+  useActionMenu,
 } from '../design-system'
-import { SettingsGroup, SettingsRow } from '../features/account/settings-row'
-import { account } from '../data/mock'
+import { profile } from '../data/mock'
+import { selectAccount, useSession } from '../data/store'
+import { useAppNavigation } from '../navigation/use-app-navigation'
 import type { MoreStackParamList } from '../navigation/types'
 
 type Navigation = NativeStackNavigationProp<MoreStackParamList, 'Account'>
 
+const CLIENT_PORTAL_URL = 'https://portal.wavexone.com'
+
 /** More tab: identity card, the two menu groups, and the support banner. */
 export function AccountScreen() {
   const { navigate } = useNavigation<Navigation>()
-  const openActivity = () => navigate('Activity')
+  const { openAccountSwitcher, openHomeScreen } = useAppNavigation()
+  const showMenu = useActionMenu()
+
+  const account = useSession(selectAccount)
+
+  const notConnected = (title: string, message: string) =>
+    showMenu({ title, message, options: [{ label: 'Got it' }] })
+
+  const openSupport = () =>
+    showMenu({
+      title: '24/7 Support',
+      message: 'Choose how you would like to reach the team.',
+      options: [
+        {
+          label: 'Email support',
+          onSelect: () => {
+            Linking.openURL('mailto:support@wavexone.com').catch(() => {})
+          },
+        },
+        {
+          label: 'Live chat',
+          onSelect: () =>
+            notConnected(
+              'Live chat',
+              'No support endpoint has been supplied yet — see the integration guide §4.8.',
+            ),
+        },
+      ],
+    })
+
+  const openFunds = () =>
+    showMenu({
+      title: 'Funds',
+      options: [
+        { label: 'Balance & funding', onSelect: () => openHomeScreen('Balance') },
+        { label: 'Transaction history', onSelect: () => navigate('Activity') },
+      ],
+    })
+
+  const openClientPortal = () =>
+    showMenu({
+      title: 'Open the client portal?',
+      message: `This leaves the app and opens ${CLIENT_PORTAL_URL} in your browser.`,
+      options: [
+        {
+          label: 'Open in browser',
+          onSelect: () => {
+            Linking.openURL(CLIENT_PORTAL_URL).catch(() => {
+              showMenu({
+                title: 'Could not open the portal',
+                message: 'No browser is available to handle that link.',
+                options: [{ label: 'Got it' }],
+              })
+            })
+          },
+        },
+      ],
+    })
+
+  const confirmLogout = () =>
+    showMenu({
+      title: 'Log out?',
+      message: 'Stored tokens and the portal session cookie are cleared on logout.',
+      options: [
+        {
+          label: 'Log out',
+          destructive: true,
+          onSelect: () =>
+            notConnected(
+              'Not connected yet',
+              'Sign-in and sign-out arrive with the authentication module.',
+            ),
+        },
+      ],
+    })
 
   return (
     <Screen>
@@ -46,15 +126,15 @@ export function AccountScreen() {
         </Gutter>
 
         <Gutter>
-          <Pressable accessibilityRole="button">
+          <PressableScale scaleTo={0.99} onPress={() => navigate('Profile')}>
             <Card style={styles.profile}>
-              <Avatar uri={account.avatarUrl} size={76} />
+              <Avatar uri={profile.avatarUrl} size={76} />
               <View style={styles.profileIdentity}>
                 <View style={styles.profileName}>
                   <Text variant="heading" style={styles.profileNameText}>
-                    {account.holder}
+                    {profile.holder}
                   </Text>
-                  {account.verified ? <VerifiedIcon size={20} /> : null}
+                  {profile.verified ? <VerifiedIcon size={20} /> : null}
                 </View>
                 <Text variant="body" color={colors.textMuted}>
                   {account.mode} account
@@ -65,51 +145,74 @@ export function AccountScreen() {
               </View>
               <ChevronRightIcon size={22} color={colors.text} />
             </Card>
-          </Pressable>
+          </PressableScale>
         </Gutter>
 
         <Gutter>
-          <SettingsGroup>
-            <SettingsRow
+          <ListGroup>
+            <ListRow
               icon={<WalletIcon size={24} color={colors.text} />}
               label="Funds"
-              onPress={openActivity}
+              onPress={openFunds}
             />
-            <SettingsRow
+            <ListRow
               icon={<UserIcon size={24} color={colors.text} />}
               label="Profile & verification"
+              onPress={() => navigate('Profile')}
             />
-            <SettingsRow
+            <ListRow
               icon={<MarketsIcon size={24} color={colors.text} filled />}
               label="Trading signals"
+              onPress={() => openHomeScreen('Signals')}
             />
-            <SettingsRow
+            <ListRow
               icon={<ExternalLinkIcon size={24} color={colors.text} />}
               label="Client portal"
+              onPress={openClientPortal}
             />
-            <SettingsRow icon={<CodeIcon size={24} color={colors.text} />} label="API access" />
-            <SettingsRow
+            <ListRow
+              icon={<CodeIcon size={24} color={colors.text} />}
+              label="API access"
+              onPress={() =>
+                notConnected(
+                  'API access',
+                  'Key issuance runs through the portal endpoints, which are not connected yet.',
+                )
+              }
+            />
+            <ListRow
               icon={<HeadsetIcon size={24} color={colors.text} />}
               label="Support"
               divider={false}
+              onPress={openSupport}
             />
-          </SettingsGroup>
+          </ListGroup>
         </Gutter>
 
         <Gutter>
-          <SettingsGroup>
-            <SettingsRow icon={<SettingsIcon size={24} color={colors.text} />} label="Settings" />
-            <SettingsRow icon={<SwapIcon size={24} color={colors.text} />} label="Switch account" />
-            <SettingsRow
+          <ListGroup>
+            <ListRow
+              icon={<SettingsIcon size={24} color={colors.text} />}
+              label="Settings"
+              onPress={() => navigate('Settings')}
+            />
+            <ListRow
+              icon={<SwapIcon size={24} color={colors.text} />}
+              label="Switch account"
+              onPress={openAccountSwitcher}
+            />
+            <ListRow
               icon={<LogoutIcon size={24} color={colors.text} />}
               label="Log out"
               divider={false}
+              destructive
+              onPress={confirmLogout}
             />
-          </SettingsGroup>
+          </ListGroup>
         </Gutter>
 
         <Gutter>
-          <Pressable accessibilityRole="button">
+          <PressableScale scaleTo={0.99} onPress={openSupport}>
             <Card tone="goldSoft" style={styles.support}>
               <HeadsetIcon size={26} color={colors.text} />
               <View style={styles.supportCopy}>
@@ -120,7 +223,7 @@ export function AccountScreen() {
               </View>
               <ChevronRightIcon size={22} color={colors.text} />
             </Card>
-          </Pressable>
+          </PressableScale>
         </Gutter>
       </ScrollView>
     </Screen>

@@ -14,13 +14,18 @@ import {
   VerticalDivider,
   Watermark,
   colors,
+  useActionMenu,
 } from '../design-system'
 import { ActivityRow } from '../features/activity/activity-row'
-import { account, activity, instrumentsById } from '../data/mock'
+import { ScreenHeader } from '../features/shared/screen-header'
+import { activity, activityById, instrumentsById } from '../data/mock'
 import { formatSignedMoney } from '../data/format'
+import { selectAccount, useSession, type MarketPeriod } from '../data/store'
 import type { ActivityEntry } from '../data/types'
+import { useAppNavigation } from '../navigation/use-app-navigation'
 
 const TABS = ['Trades', 'Funds', 'Orders'] as const
+const RANGES: readonly MarketPeriod[] = ['Today', 'This week', 'This month', 'This year']
 
 type ListItem =
   | { type: 'header'; id: string; title: string }
@@ -29,9 +34,42 @@ type ListItem =
 /** Activity: month summary, a Trades / Funds / Orders filter, grouped history. */
 export function ActivityScreen() {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Trades')
+  const [range, setRange] = useState<MarketPeriod>('This month')
+
+  const showMenu = useActionMenu()
+  const { openInstrument, openFunding } = useAppNavigation()
+  const account = useSession(selectAccount)
 
   const items = buildItems(activity.filter((entry) => entry.tab === tab))
-  const onMenu = (_id: string) => {}
+
+  const openFilter = () =>
+    showMenu({
+      title: 'Show activity from',
+      options: RANGES.map((option) => ({
+        label: option === range ? `${option} ✓` : option,
+        onSelect: () => setRange(option),
+      })),
+    })
+
+  const openRowMenu = (id: string) => {
+    const entry = activityById.get(id)
+    if (!entry) return
+
+    const options = entry.instrumentId
+      ? [
+          {
+            label: 'View chart',
+            onSelect: () => openInstrument(entry.instrumentId as string),
+          },
+        ]
+      : [{ label: 'Repeat this transfer', onSelect: () => openFunding('deposit') }]
+
+    showMenu({
+      title: entry.title,
+      message: `${entry.subtitle} · ${entry.date} ${entry.time}`,
+      options: [...options, { label: 'Download receipt' }],
+    })
+  }
 
   const renderItem = ({ item }: { item: ListItem }) => {
     if (item.type === 'header') {
@@ -58,25 +96,33 @@ export function ActivityScreen() {
         iconKind={instrument?.icon}
         iconLabel={instrument?.iconLabel}
         iconTint={instrument?.iconTint}
-        onMenu={onMenu}
+        onMenu={openRowMenu}
       />
     )
   }
 
   return (
     <Screen>
-      <Gutter style={styles.titleRow}>
-        <Text variant="title">Activity</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Filter activity" hitSlop={8}>
-          <FilterIcon size={24} color={colors.text} />
-        </Pressable>
-      </Gutter>
+      <ScreenHeader
+        title="Activity"
+        subtitle={`${account.mode} · ${account.number} · ${range}`}
+        action={
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Filter activity"
+            hitSlop={8}
+            onPress={openFilter}
+          >
+            <FilterIcon size={24} color={colors.text} />
+          </Pressable>
+        }
+      />
 
       <Gutter>
         <View style={styles.summary}>
           <Watermark size={140} right={-22} top={-24} />
           <Text variant="strong" color={colors.onInk} style={styles.summaryTitle}>
-            This month
+            {range}
           </Text>
 
           <View style={styles.summaryBody}>
@@ -159,14 +205,6 @@ const getItemType = (item: ListItem) => item.type
 const Separator = () => <View style={styles.separator} />
 
 const styles = StyleSheet.create({
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-
   summary: {
     backgroundColor: colors.ink,
     borderRadius: 24,

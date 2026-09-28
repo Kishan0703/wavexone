@@ -1,24 +1,25 @@
-import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import { Pressable as RNPressable, type StyleProp, type ViewStyle } from 'react-native'
 import Animated, {
   interpolate,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
   type AnimatedStyle,
 } from 'react-native-reanimated'
-import type { StyleProp, ViewStyle } from 'react-native'
 
 export { Pressable } from 'react-native'
 
 export type PressableScaleProps = {
   onPress?: () => void
+  /** Opens a context menu on most rows. */
+  onLongPress?: () => void
   children: React.ReactNode
   style?: StyleProp<AnimatedStyle<StyleProp<ViewStyle>>>
   /** How far the target shrinks while held. */
   scaleTo?: number
   disabled?: boolean
   hitSlop?: number
+  accessibilityLabel?: string
 }
 
 const TIMING = { duration: 120 }
@@ -26,32 +27,27 @@ const TIMING = { duration: 120 }
 /**
  * Press target with a spring-free scale response.
  *
- * The gesture callbacks are worklets, so the press state never round-trips
- * through the JS thread. The shared value stores the *state* (0 = idle,
- * 1 = held) and the transform is derived from it.
+ * The shared value stores the *state* (0 = idle, 1 = held) and the transform
+ * is derived from it, so the animation itself runs on the UI thread.
+ *
+ * The press is detected by react-native's `Pressable` rather than a
+ * `GestureDetector`. A gesture handler would keep the press-in state off the
+ * JS thread too, but it does not reliably receive events inside a scroll
+ * container on web — and most of these targets are rows inside a list. One
+ * frame of latency on the scale-down is a cheaper price than a row that
+ * silently ignores taps.
  */
 export function PressableScale({
   onPress,
+  onLongPress,
   children,
   style,
   scaleTo = 0.96,
   disabled = false,
   hitSlop = 0,
+  accessibilityLabel,
 }: PressableScaleProps) {
   const pressed = useSharedValue(0)
-
-  const tap = Gesture.Tap()
-    .enabled(!disabled)
-    .hitSlop({ top: hitSlop, bottom: hitSlop, left: hitSlop, right: hitSlop })
-    .onBegin(() => {
-      pressed.set(withTiming(1, TIMING))
-    })
-    .onFinalize(() => {
-      pressed.set(withTiming(0, TIMING))
-    })
-    .onEnd(() => {
-      if (onPress) runOnJS(onPress)()
-    })
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: interpolate(pressed.get(), [0, 1], [1, scaleTo]) }],
@@ -59,8 +55,20 @@ export function PressableScale({
   }))
 
   return (
-    <GestureDetector gesture={tap}>
-      <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>
-    </GestureDetector>
+    <Animated.View style={[style, animatedStyle]}>
+      <RNPressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        disabled={disabled}
+        hitSlop={hitSlop}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={380}
+        onPressIn={() => pressed.set(withTiming(1, TIMING))}
+        onPressOut={() => pressed.set(withTiming(0, TIMING))}
+      >
+        {children}
+      </RNPressable>
+    </Animated.View>
   )
 }

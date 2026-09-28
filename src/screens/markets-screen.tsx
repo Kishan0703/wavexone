@@ -1,6 +1,4 @@
 import { FlashList } from '@shopify/flash-list'
-import { useNavigation } from '@react-navigation/native'
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useState } from 'react'
 import { ScrollView, StyleSheet, TextInput, View } from 'react-native'
 
@@ -16,13 +14,13 @@ import {
   colors,
   fonts,
   radius,
+  useActionMenu,
 } from '../design-system'
 import { MarketRow } from '../features/markets/market-row'
-import { instruments } from '../data/mock'
+import { instruments, instrumentsById } from '../data/mock'
+import { useSession } from '../data/store'
 import type { Instrument } from '../data/types'
-import type { RootStackParamList } from '../navigation/types'
-
-type Navigation = NativeStackNavigationProp<RootStackParamList>
+import { useAppNavigation } from '../navigation/use-app-navigation'
 
 const FILTERS = ['Favorites', 'All', 'Forex', 'Metals', 'Crypto', 'Energy'] as const
 type Filter = (typeof FILTERS)[number]
@@ -32,24 +30,41 @@ type Filter = (typeof FILTERS)[number]
  * so it sits alongside Market Watch without introducing new visual rules.
  */
 export function MarketsScreen() {
-  const { navigate } = useNavigation<Navigation>()
+  const { openInstrument, openOrderTicket } = useAppNavigation()
+  const showMenu = useActionMenu()
+
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('All')
+
+  const favorites = useSession((state) => state.favorites)
+  const toggleFavorite = useSession((state) => state.toggleFavorite)
 
   const needle = query.trim().toLowerCase()
   const rows = instruments.filter((item) => {
     const matchesFilter =
-      filter === 'All' ||
-      (filter === 'Favorites' ? item.favorite : item.category === filter)
+      filter === 'All' || (filter === 'Favorites' ? favorites.has(item.id) : item.category === filter)
     if (!matchesFilter) return false
     if (!needle) return true
-    return (
-      item.symbol.toLowerCase().includes(needle) || item.name.toLowerCase().includes(needle)
-    )
+    return item.symbol.toLowerCase().includes(needle) || item.name.toLowerCase().includes(needle)
   })
 
-  const openInstrument = (instrumentId: string) => {
-    navigate('Instrument', { instrumentId })
+  const openRowMenu = (instrumentId: string) => {
+    const instrument = instrumentsById.get(instrumentId)
+    if (!instrument) return
+
+    showMenu({
+      title: instrument.symbol,
+      message: instrument.description,
+      options: [
+        { label: 'View chart', onSelect: () => openInstrument(instrumentId) },
+        { label: 'Buy', onSelect: () => openOrderTicket(instrumentId, 'Buy') },
+        { label: 'Sell', onSelect: () => openOrderTicket(instrumentId, 'Sell') },
+        {
+          label: favorites.has(instrumentId) ? 'Remove from favourites' : 'Add to favourites',
+          onSelect: () => toggleFavorite(instrumentId),
+        },
+      ],
+    })
   }
 
   const renderItem = ({ item }: { item: Instrument }) => (
@@ -66,6 +81,8 @@ export function MarketsScreen() {
       spark={item.spark}
       sparkTone={item.sparkTone}
       onPress={openInstrument}
+      onLongPress={openRowMenu}
+      showFavorite
     />
   )
 
@@ -75,11 +92,15 @@ export function MarketsScreen() {
         <Text variant="title">Markets</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Show favourites"
+          accessibilityLabel={filter === 'Favorites' ? 'Show all markets' : 'Show favourites'}
           hitSlop={8}
-          onPress={() => setFilter('Favorites')}
+          onPress={() => setFilter((previous) => (previous === 'Favorites' ? 'All' : 'Favorites'))}
         >
-          <StarIcon size={24} color={colors.text} filled={filter === 'Favorites'} />
+          <StarIcon
+            size={24}
+            color={filter === 'Favorites' ? colors.gold : colors.text}
+            filled={filter === 'Favorites'}
+          />
         </Pressable>
       </Gutter>
 
@@ -110,6 +131,7 @@ export function MarketsScreen() {
             <Pressable
               key={item}
               accessibilityRole="tab"
+              accessibilityLabel={item}
               accessibilityState={{ selected }}
               onPress={() => setFilter(item)}
               style={[styles.chip, selected ? styles.chipSelected : null]}
@@ -130,7 +152,8 @@ export function MarketsScreen() {
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={Empty}
+        ListEmptyComponent={filter === 'Favorites' ? NoFavorites : Empty}
+        ListFooterComponent={rows.length > 0 ? Hint : null}
       />
     </Screen>
   )
@@ -145,6 +168,20 @@ const Empty = () => (
       No markets match that search.
     </Text>
   </View>
+)
+
+const NoFavorites = () => (
+  <View style={styles.empty}>
+    <Text variant="body" color={colors.textMuted}>
+      No favourites yet — press and hold a market to add one.
+    </Text>
+  </View>
+)
+
+const Hint = () => (
+  <Text variant="caption" color={colors.textSubtle} style={styles.hint}>
+    Press and hold a market for quick actions
+  </Text>
 )
 
 const styles = StyleSheet.create({
@@ -213,6 +250,11 @@ const styles = StyleSheet.create({
   },
   empty: {
     paddingTop: 48,
+    paddingHorizontal: 24,
     alignItems: 'center',
+  },
+  hint: {
+    textAlign: 'center',
+    paddingTop: 18,
   },
 })

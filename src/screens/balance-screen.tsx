@@ -1,6 +1,4 @@
 import { FlashList } from '@shopify/flash-list'
-import { useNavigation } from '@react-navigation/native'
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useState } from 'react'
 import { StyleSheet, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -18,22 +16,24 @@ import {
   Watermark,
   colors,
   fonts,
+  useActionMenu,
 } from '../design-system'
 import { MarketRow } from '../features/markets/market-row'
 import { SectionHeader } from '../features/shared/section-header'
-import { account, marketWatch } from '../data/mock'
+import { marketWatch } from '../data/mock'
 import { formatMoney } from '../data/format'
+import { selectAccount, useSession, type MarketPeriod } from '../data/store'
 import type { Instrument } from '../data/types'
-import type { RootStackParamList } from '../navigation/types'
+import { useAppNavigation } from '../navigation/use-app-navigation'
 
-type Navigation = NativeStackNavigationProp<RootStackParamList>
+const PERIODS: readonly MarketPeriod[] = ['Today', 'This week', 'This month', 'This year']
 
 /**
  * "Your Balance": full-bleed dark header with the funding actions, then
  * search and Market Watch.
  */
 export function BalanceScreen() {
-  const { navigate } = useNavigation<Navigation>()
+  const { openInstrument } = useAppNavigation()
   const [query, setQuery] = useState('')
 
   const needle = query.trim().toLowerCase()
@@ -43,10 +43,6 @@ export function BalanceScreen() {
           item.symbol.toLowerCase().includes(needle) || item.name.toLowerCase().includes(needle),
       )
     : marketWatch
-
-  const openInstrument = (instrumentId: string) => {
-    navigate('Instrument', { instrumentId })
-  }
 
   const renderItem = ({ item }: { item: Instrument }) => (
     <MarketRow
@@ -73,6 +69,7 @@ export function BalanceScreen() {
         keyExtractor={keyExtractor}
         ListHeaderComponent={<BalanceHeader query={query} onChangeQuery={setQuery} />}
         ItemSeparatorComponent={Separator}
+        ListEmptyComponent={Empty}
         contentContainerStyle={styles.list}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -89,6 +86,21 @@ function BalanceHeader({
   onChangeQuery: (value: string) => void
 }) {
   const insets = useSafeAreaInsets()
+  const showMenu = useActionMenu()
+  const { openFunding } = useAppNavigation()
+
+  const account = useSession(selectAccount)
+  const period = useSession((state) => state.marketPeriod)
+  const setPeriod = useSession((state) => state.setMarketPeriod)
+
+  const pickPeriod = () =>
+    showMenu({
+      title: 'Market Watch period',
+      options: PERIODS.map((option) => ({
+        label: option,
+        onSelect: () => setPeriod(option),
+      })),
+    })
 
   return (
     <View style={styles.header}>
@@ -107,13 +119,13 @@ function BalanceHeader({
         </Text>
 
         <View style={styles.actions}>
-          <CircleAction label="Deposit">
+          <CircleAction label="Deposit" onPress={() => openFunding('deposit')}>
             <CardPlusIcon size={24} color={colors.onInk} />
           </CircleAction>
-          <CircleAction label="Withdraw">
+          <CircleAction label="Withdraw" onPress={() => openFunding('withdraw')}>
             <CardPlusIcon size={24} color={colors.onInk} />
           </CircleAction>
-          <CircleAction label="Transfer" tone="gold">
+          <CircleAction label="Transfer" tone="gold" onPress={() => openFunding('transfer')}>
             <CardPlusIcon size={24} color={colors.ink} />
           </CircleAction>
         </View>
@@ -135,7 +147,12 @@ function BalanceHeader({
       </Gutter>
 
       <Gutter style={styles.sectionHeader}>
-        <SectionHeader title="Market Watch" action="This month" withChevron />
+        <SectionHeader
+          title="Market Watch"
+          action={period}
+          withChevron
+          onPressAction={pickPeriod}
+        />
       </Gutter>
     </View>
   )
@@ -143,6 +160,14 @@ function BalanceHeader({
 
 const keyExtractor = (item: Instrument) => item.id
 const Separator = () => <View style={styles.separator} />
+
+const Empty = () => (
+  <View style={styles.empty}>
+    <Text variant="body" color={colors.textMuted}>
+      No markets match that search.
+    </Text>
+  </View>
+)
 
 const styles = StyleSheet.create({
   list: {
@@ -214,5 +239,9 @@ const styles = StyleSheet.create({
   sectionHeader: {
     marginTop: 24,
     marginBottom: 14,
+  },
+  empty: {
+    paddingTop: 32,
+    alignItems: 'center',
   },
 })

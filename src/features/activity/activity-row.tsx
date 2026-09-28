@@ -6,6 +6,7 @@ import {
   DepositIcon,
   MoreVerticalIcon,
   Pressable,
+  PressableScale,
   Text,
   WithdrawIcon,
   colors,
@@ -42,51 +43,68 @@ export function ActivityRow({
   onMenu,
 }: ActivityRowProps) {
   return (
-    <Card style={styles.card}>
-      <View style={styles.icon}>
-        {kind === 'deposit' ? <DepositIcon size={26} color={colors.text} /> : null}
-        {kind === 'withdrawal' ? <WithdrawIcon size={26} color={colors.text} /> : null}
-        {kind === 'trade' && iconKind ? (
-          <AssetIcon kind={iconKind} label={iconLabel} tint={iconTint} size={30} />
-        ) : null}
-      </View>
+    <PressableScale onPress={() => onMenu(id)} scaleTo={0.99}>
+      <Card style={styles.card}>
+        <View style={styles.icon}>
+          {kind === 'deposit' ? <DepositIcon size={26} color={colors.text} /> : null}
+          {kind === 'withdrawal' ? <WithdrawIcon size={26} color={colors.text} /> : null}
+          {kind === 'trade' && iconKind ? (
+            <AssetIcon kind={iconKind} label={iconLabel} tint={iconTint} size={30} />
+          ) : null}
+        </View>
 
-      <View style={styles.identity}>
-        <Text variant="strong" style={styles.title}>
-          {title}
-        </Text>
-        <Text variant="caption" color={colors.textMuted} style={styles.subtitle} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      </View>
+        <View style={styles.identity}>
+          <Text variant="strong" style={styles.title}>
+            {title}
+          </Text>
+          <Text
+            variant="caption"
+            color={colors.textMuted}
+            style={styles.subtitle}
+            numberOfLines={1}
+          >
+            {subtitle}
+          </Text>
+        </View>
 
-      <View style={styles.when}>
-        <Text variant="caption" color={colors.textMuted} style={styles.whenText} numberOfLines={1}>
-          {date}
-        </Text>
-        <Text variant="caption" color={colors.textMuted} style={styles.whenText} numberOfLines={1}>
-          {time}
-        </Text>
-      </View>
+        <View style={styles.when}>
+          <Text
+            variant="caption"
+            color={colors.textMuted}
+            style={styles.whenText}
+            numberOfLines={1}
+          >
+            {date}
+          </Text>
+          <Text
+            variant="caption"
+            color={colors.textMuted}
+            style={styles.whenText}
+            numberOfLines={1}
+          >
+            {time}
+          </Text>
+        </View>
 
-      <Text
-        variant="strong"
-        color={amount < 0 ? colors.red : colors.green}
-        style={styles.amount}
-        numberOfLines={1}
-      >
-        {formatSignedMoney(amount)}
-      </Text>
+        <Text
+          variant="strong"
+          color={amount < 0 ? colors.red : colors.green}
+          style={styles.amount}
+          numberOfLines={1}
+        >
+          {formatSignedMoney(amount)}
+        </Text>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`More actions for ${title}`}
-        hitSlop={10}
-        onPress={() => onMenu(id)}
-      >
-        <MoreVerticalIcon size={18} color={colors.text} />
-      </Pressable>
-    </Card>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`More actions for ${title}`}
+          hitSlop={10}
+          onPress={() => onMenu(id)}
+        >
+          <MoreVerticalIcon size={18} color={colors.text} />
+        </Pressable>
+      </Card>
+    </PressableScale>
   )
 }
 

@@ -1,15 +1,22 @@
 import type { NavigatorScreenParams } from '@react-navigation/native'
 
-/** Home tab: the dashboard, plus the "Your Balance" screen it pushes. */
+import type { FundingMode } from '../data/types'
+
+/** Home tab: the dashboard and everything it pushes. */
 export type HomeStackParamList = {
   Dashboard: undefined
+  /** "Your Balance" — funding actions plus Market Watch. */
   Balance: undefined
+  Notifications: undefined
+  Signals: undefined
 }
 
-/** More tab: the account menu, plus the history it pushes. */
+/** More tab: the account menu and everything it pushes. */
 export type MoreStackParamList = {
   Account: undefined
   Activity: undefined
+  Profile: undefined
+  Settings: undefined
 }
 
 export type TabParamList = {
@@ -27,6 +34,12 @@ export type RootStackParamList = {
    * with the Sell / Buy pair.
    */
   Instrument: { instrumentId: string }
+
+  /* Presented as native form sheets. */
+  Funding: { mode: FundingMode }
+  OrderTicket: { instrumentId: string; side: 'Buy' | 'Sell' }
+  AccountSwitcher: undefined
+  InstrumentPicker: undefined
 }
 
 declare global {

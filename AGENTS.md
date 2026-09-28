@@ -40,8 +40,22 @@ src/design-system/   colours, type scale, and every shared primitive; screens im
 src/features/        composite pieces tied to one domain (market row, position card, chart, …)
 src/screens/         one file per screen
 src/navigation/      navigators, param lists, the custom tab bar
-src/data/            fixtures, domain types, and hoisted Intl formatters
+src/data/            fixtures, domain types, session store, and hoisted Intl formatters
 ```
+
+### Conventions
+
+- **Sheets** are routes, not JS bottom sheets. Add them to the `Stack.Group`
+  in `root-navigator.tsx` and wrap the body in the `Sheet` primitive; the
+  platform supplies swipe-to-dismiss, the backdrop and keyboard avoidance.
+- **Menus** go through `useActionMenu()`. It is a real `UIAlertController` on
+  iOS and a native `Modal` elsewhere. Do not hand-roll a popover.
+- **Cross-navigator routes** go through `useAppNavigation()`. Never reach for
+  `navigation.getParent()` in a screen.
+- **Per-row state** is read inside the row with a Zustand selector
+  (`useSession((s) => s.favorites.has(id))`), not passed down from the list.
+- **No dead taps.** If a control cannot do its real job yet, open an action
+  menu that says what is missing — do not render an inert button.
 
 - Never import `Text`, `Pressable`, or an image component from `react-native` / a package inside a screen. Go through `src/design-system`.
 - Colours and sizes come from `colors.ts` and `tokens.ts`. Both were sampled from the mockups in the repo root; changing a value there changes it everywhere.

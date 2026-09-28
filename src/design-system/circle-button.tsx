@@ -47,7 +47,13 @@ export function CircleAction({
 }) {
   return (
     <PressableScale onPress={onPress} scaleTo={0.94} style={styles.action}>
-      <View style={[styles.base, tones[tone], styles.actionCircle]}>{children}</View>
+      <View
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        style={[styles.base, tones[tone], styles.actionCircle]}
+      >
+        {children}
+      </View>
       <Text variant="caption" color={colors.onInk} style={styles.actionLabel}>
         {label}
       </Text>

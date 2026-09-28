@@ -4,8 +4,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { colors } from './colors'
 import { SCREEN_PADDING } from './tokens'
 
-/** Height reserved under scrolling content so the tab bar never covers it. */
-export const TAB_BAR_CLEARANCE = 96
+/**
+ * Height reserved under scrolling content so the tab bar never covers it.
+ * Covers the bar itself plus the Trade disc, which breaks above the bar.
+ */
+export const TAB_BAR_CLEARANCE = 108
 
 /**
  * Page container.

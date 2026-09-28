@@ -45,9 +45,23 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         if (name === 'Trade') {
           return (
             <PressableScale key={route.key} onPress={onPress} scaleTo={0.9} style={styles.item}>
-              <View style={styles.cradle}>
-                <View style={styles.fab}>
-                  <CandlesIcon size={26} color={colors.gold} />
+              <View
+                accessibilityRole="tab"
+                accessibilityState={{ selected: focused }}
+                style={styles.glyph}
+              >
+                {/*
+                 * The disc is taken out of flow so it cannot push into the
+                 * label: the Trade label keeps the same baseline as every
+                 * other tab, and only the circle breaks above the bar.
+                 * `pointerEvents` is off so presses reach the row instead.
+                 */}
+                <View style={styles.fabAnchor} pointerEvents="none">
+                  <View style={styles.cradle}>
+                    <View style={styles.fab}>
+                      <CandlesIcon size={26} color={colors.gold} />
+                    </View>
+                  </View>
                 </View>
               </View>
               <Text style={[styles.label, focused ? styles.labelActive : null]}>
@@ -93,22 +107,33 @@ function TabGlyph({ name, focused }: { name: keyof TabParamList; focused: boolea
 }
 
 const FAB_SIZE = 58
-const CRADLE_SIZE = 76
+/** Thin white ring so the bar reads as bulging around the button. */
+const CRADLE_SIZE = FAB_SIZE + 8
+const GLYPH_HEIGHT = 28
+/** How far the FAB's centre sits above the other tabs' glyph centres. */
+const FAB_LIFT = 9
 
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    paddingTop: 10,
+    paddingTop: 14,
   },
   item: {
     flex: 1,
     alignItems: 'center',
-    gap: 7,
   },
   glyph: {
-    height: 28,
+    height: GLYPH_HEIGHT,
     justifyContent: 'center',
+  },
+  // Centres the disc on the glyph row, then lifts it clear of the label.
+  fabAnchor: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: GLYPH_HEIGHT / 2 - FAB_LIFT - CRADLE_SIZE / 2,
+    alignItems: 'center',
   },
   // White disc that reads as the bar bulging upward around the Trade button.
   cradle: {
@@ -118,8 +143,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -26,
-    marginBottom: -22,
   },
   fab: {
     width: FAB_SIZE,
@@ -131,6 +154,10 @@ const styles = StyleSheet.create({
     boxShadow: shadow.fab,
   },
   label: {
+    // Spacing lives here rather than as `gap` on `item`: `PressableScale`
+    // puts that style on its outer wrapper, whose only child is the press
+    // target, so a gap there separates nothing.
+    marginTop: 12,
     fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 16,

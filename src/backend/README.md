@@ -95,6 +95,8 @@ Worth resolving before Phase 1 ships:
 npm test
 ```
 
+Tests live in `tests/backend/`, mirroring this directory.
+
 `decimal.test.ts` covers the arithmetic. `gate.test.ts` covers the denylist,
 phase gating and every duplicate-submission path — including the case where a
 mutation fails mid-flight, which is the one that can place an order twice.

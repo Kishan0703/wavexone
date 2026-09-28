@@ -1,6 +1,6 @@
-import { BackendError } from './errors'
-import { Gate, type BackendConfig } from './gate'
-import { unwrapEnvelope } from './http'
+import { BackendError } from '../../src/backend/errors'
+import { Gate, type BackendConfig } from '../../src/backend/gate'
+import { unwrapEnvelope } from '../../src/backend/http'
 
 /**
  * The duplicate-submission guard is the part of this module that can lose

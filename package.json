@@ -53,7 +53,7 @@
   "jest": {
     "preset": "jest-expo",
     "testMatch": [
-      "**/*.test.ts"
+      "<rootDir>/tests/**/*.test.ts"
     ],
     "setupFiles": [
       "<rootDir>/jest.setup.js"

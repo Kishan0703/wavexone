@@ -1,4 +1,4 @@
-import { add, compare, decimal, isNegative, multiply, subtract, toFixed, tryDecimal } from './decimal'
+import { add, compare, decimal, isNegative, multiply, subtract, toFixed, tryDecimal } from '../../src/backend/decimal'
 
 describe('decimal', () => {
   it('holds values a float cannot', () => {

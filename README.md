@@ -64,6 +64,8 @@ src/features/        composite pieces per domain (market row, position card, cha
 src/screens/         one file per screen
 src/navigation/      navigators, param lists, the custom tab bar
 src/data/            fixtures, domain types, session store, Intl formatters
+src/backend/         the network seam
+tests/               jest specs, mirroring the src/ tree
 ```
 
 `src/design-system/colors.ts` and `tokens.ts` hold every colour and dimension.

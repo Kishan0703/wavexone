@@ -40,7 +40,8 @@
             "./assets/fonts/Inter_800ExtraBold.ttf"
           ]
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "reactCompiler": true

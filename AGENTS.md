@@ -17,11 +17,12 @@ npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — re
 npx expo start              # start the dev server
 npx expo lint               # lint
 npx tsc --noEmit            # typecheck
+npm test                    # jest
 npx expo-doctor             # diagnose dependency and config issues
 npx expo install --fix      # fix incompatible package versions
 ```
 
-Run lint and typecheck before declaring any task done.
+Run lint, typecheck and tests before declaring any task done.
 
 ## Navigation & Routing
 
@@ -41,6 +42,7 @@ src/features/        composite pieces tied to one domain (market row, position c
 src/screens/         one file per screen
 src/navigation/      navigators, param lists, the custom tab bar
 src/data/            fixtures, domain types, session store, and hoisted Intl formatters
+src/backend/         the network seam — see src/backend/README.md
 ```
 
 ### Conventions
@@ -59,7 +61,18 @@ src/data/            fixtures, domain types, session store, and hoisted Intl for
 
 - Never import `Text`, `Pressable`, or an image component from `react-native` / a package inside a screen. Go through `src/design-system`.
 - Colours and sizes come from `colors.ts` and `tokens.ts`. Both were sampled from the mockups in the repo root; changing a value there changes it everywhere.
-- `src/data/mock.ts` is a fixture module. The real client is specified in `WAVEXONE_BACKEND_INTEGRATION_GUIDE.md` §5 — screens consume the types in `src/data/types.ts` so the swap is local.
+- **Network access** goes through `useBackend()` / `useBackendQuery()` from
+  `src/backend/provider`. Never call `fetch` from a screen, a feature or the
+  design system — `src/backend/http.ts` is the only `fetch` in the app, and
+  the policy in `src/backend/gate.ts` is what keeps the guide's §6 rules
+  enforceable.
+- **Mutations need an idempotency key.** Several trading mutations are `GET`
+  requests, so a retry can place a second order. Nothing in this repo retries
+  automatically; do not add a retry wrapper.
+
+- `src/data/mock.ts` is a fixture module. It is reached through
+  `createMockBackend()` rather than imported by new code. Screens still import
+  it directly today; migrating them to `useBackendQuery` is the next step.
 
 ## Building with EAS
 

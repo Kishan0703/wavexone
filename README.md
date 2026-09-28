@@ -84,11 +84,17 @@ at call sites.
 - `Intl` formatters are created once at module scope.
 - React Compiler is enabled, so there is no hand-written `memo` / `useCallback`.
 
-## Notes for the backend work
+## Backend
 
-`WAVEXONE_BACKEND_INTEGRATION_GUIDE.md` specifies the `WaveXBackend` client
-that replaces `src/data/mock.ts`. Screens only consume the types in
-`src/data/types.ts`, so the swap is contained.
+The `WaveXBackend` module specified in `WAVEXONE_BACKEND_INTEGRATION_GUIDE.md`
+§5 lives in `src/backend/` — see [its README](src/backend/README.md) for what
+is implemented, what is blocked, and on what.
+
+In short: authentication, the safety policy and the fixture implementation are
+done; the real data calls are not, because the guide documents which endpoint
+backs each screen but not what any of them returns. `createBackend()` returns
+the fixture implementation unless three `EXPO_PUBLIC_` values point it at a
+real host.
 
 Things the guide calls out that this build already respects:
 
@@ -103,5 +109,5 @@ Things the guide calls out that this build already respects:
 ## Checks
 
 ```bash
-npx tsc --noEmit && npx expo lint
+npx tsc --noEmit && npx expo lint && npm test
 ```

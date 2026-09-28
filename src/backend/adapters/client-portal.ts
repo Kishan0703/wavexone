@@ -1,0 +1,67 @@
+import { BackendError } from '../errors'
+import type { Gate } from '../gate'
+import { logBackendEvent } from '../redact'
+import type { SessionMaterial } from '../secure-session-store'
+
+/**
+ * The Client Portal — cookie-backed, and a separate session from the trading
+ * API even though both hang off the same account token (guide §3.2).
+ *
+ * The cookie itself is never touched by this code. On iOS and Android the
+ * platform HTTP stack owns the jar; on web the browser does. Reading it into
+ * JS would mean storing it, which guide §3.3 rules out.
+ */
+export class ClientPortalAdapter {
+  /** Whether `setPortalSession` has succeeded since the app started. */
+  private established = false
+
+  constructor(private readonly gate: Gate) {}
+
+  /**
+   * Guide §3.2 steps 1–3. Idempotent from the caller's point of view: calling
+   * it twice is harmless, and everything that needs the portal calls it first.
+   */
+  async establish(material: SessionMaterial): Promise<void> {
+    if (this.established) return
+
+    await this.gate.call('setPortalSession', {
+      form: { token: material.accountToken },
+    })
+    this.established = true
+    logBackendEvent('portal.session-established')
+  }
+
+  /**
+   * Guide §3.2 step 5: re-establish after cookie expiry or an authorized 401.
+   *
+   * Only wraps reads. A mutation that 401s is *not* replayed here — guide
+   * §4.5 forbids replaying mutations, and a withdrawal that failed on auth
+   * may still have been recorded.
+   */
+  async read<T>(material: SessionMaterial, call: () => Promise<T>): Promise<T> {
+    await this.establish(material)
+    try {
+      return await call()
+    } catch (error) {
+      if (!(error instanceof BackendError) || error.kind !== 'auth') throw error
+
+      logBackendEvent('portal.session-expired')
+      this.established = false
+      await this.establish(material)
+      return call()
+    }
+  }
+
+  /**
+   * Guide §3.2 step 4. Sent when acting on a sibling account rather than the
+   * one the portal session defaulted to.
+   */
+  headers(portalToken?: string): Record<string, string> {
+    return portalToken ? { 'X-Portal-Token': portalToken } : {}
+  }
+
+  /** Called on sign-out so the next user does not inherit a session. */
+  reset(): void {
+    this.established = false
+  }
+}

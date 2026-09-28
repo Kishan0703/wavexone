@@ -97,6 +97,18 @@ npm test
 
 Tests live in `tests/backend/`, mirroring this directory.
 
-`decimal.test.ts` covers the arithmetic. `gate.test.ts` covers the denylist,
-phase gating and every duplicate-submission path — including the case where a
-mutation fails mid-flight, which is the one that can place an order twice.
+| Spec | Covers |
+|---|---|
+| `decimal.test.ts` | The arithmetic. |
+| `gate.test.ts` | Denylist, phase gating and every duplicate-submission path — including the mutation that fails mid-flight, the one that can place an order twice. |
+| `http.test.ts` | TLS refusal, the status→kind mapping, timeouts, form encoding and envelope unwrapping. |
+| `errors`/`redact.test.ts` | That no credential reaches a log, and that server wording never reaches a user. |
+| `endpoints.test.ts` | Invariants over the whole registry, so a *new* entry that breaks a §6 rule fails without anyone writing a test for it. |
+| `trading-api.test.ts` | The §3.1 handshake, the raw-token body, and that the password is sent once and stored nowhere. |
+| `client-portal.test.ts` | §3.2, including that a read is replayed after a 401 and a mutation is not. |
+| `live-backend.test.ts` | Session lifecycle, `orders.counts`, and that every unwired method refuses by name. |
+| `provider.test.tsx` | The four states of `useBackendQuery`, including a read that throws synchronously. |
+
+The synchronous-throw case is a regression guard, not a hypothetical: the
+unwired methods used to throw rather than reject, which escaped the hook's
+rejection handler and crashed the screen instead of showing the refusal.

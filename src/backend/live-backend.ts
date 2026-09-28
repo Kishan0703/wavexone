@@ -116,22 +116,22 @@ export function createLiveBackend(config: BackendConfig): WaveXBackend {
     },
 
     accounts: {
-      summary: () => needs('account summary', 'item 6, response examples for accountList/getuser'),
-      list: () => needs('account list', 'item 6, response examples for accountList'),
+      summary: async () => needs('account summary', 'item 6, response examples for accountList/getuser'),
+      list: async () => needs('account list', 'item 6, response examples for accountList'),
       async switchAccount() {
         // Reachable, but deliberately not wired: guide §4.2 lists both a
         // trading and a portal `switchAccount` and §7.7 asks which one wins.
         needs('account switching', 'item 7, which of the two switchAccount endpoints to prefer')
       },
-      profile: () => needs('profile', 'item 6, response examples for detail/apiBootstrap'),
+      profile: async () => needs('profile', 'item 6, response examples for detail/apiBootstrap'),
     },
 
     markets: {
-      catalogue: () => needs('market catalogue', 'item 11, precision and lot rules per instrument'),
-      favorites: () => needs('favorites', 'item 6, response examples for getfav'),
-      setFavorite: () => needs('favorite toggle', 'item 6, response examples for updateFavorite'),
-      quoteSnapshot: () => needs('live quotes', 'item 5, the live-price WebSocket or polling spec'),
-      candles: () => needs('chart history', 'item 5, the charting request contract'),
+      catalogue: async () => needs('market catalogue', 'item 11, precision and lot rules per instrument'),
+      favorites: async () => needs('favorites', 'item 6, response examples for getfav'),
+      setFavorite: async () => needs('favorite toggle', 'item 6, response examples for updateFavorite'),
+      quoteSnapshot: async () => needs('live quotes', 'item 5, the live-price WebSocket or polling spec'),
+      candles: async () => needs('chart history', 'item 5, the charting request contract'),
     },
 
     orders: {
@@ -155,26 +155,26 @@ export function createLiveBackend(config: BackendConfig): WaveXBackend {
         }
       },
 
-      list: () => needs('open positions', 'item 2, a staging account holding an open position'),
-      history: () => needs('closed history', 'item 6, response examples for history_of_closed_orders'),
-      place: () => needs('order placement', 'item 3, written authorization to test trading mutations'),
-      modify: () => needs('order modification', 'item 3, written authorization to test trading mutations'),
-      cancel: () => needs('order cancellation', 'item 3, written authorization to test trading mutations'),
-      close: () => needs('position close', 'item 3, written authorization to test trading mutations'),
+      list: async () => needs('open positions', 'item 2, a staging account holding an open position'),
+      history: async () => needs('closed history', 'item 6, response examples for history_of_closed_orders'),
+      place: async () => needs('order placement', 'item 3, written authorization to test trading mutations'),
+      modify: async () => needs('order modification', 'item 3, written authorization to test trading mutations'),
+      cancel: async () => needs('order cancellation', 'item 3, written authorization to test trading mutations'),
+      close: async () => needs('position close', 'item 3, written authorization to test trading mutations'),
     },
 
     funds: {
-      configuration: () => needs('funding configuration', 'item 6, response examples for apiRedeemConfig'),
-      deposit: () => needs('deposit submission', 'item 4, test methods that cannot move real money'),
-      requestWithdrawal: () =>
+      configuration: async () => needs('funding configuration', 'item 6, response examples for apiRedeemConfig'),
+      deposit: async () => needs('deposit submission', 'item 4, test methods that cannot move real money'),
+      requestWithdrawal: async () =>
         needs('withdrawal', 'item 4, test methods that cannot move real money'),
-      transfer: () => needs('transfer', 'item 4, test methods that cannot move real money'),
-      history: () => needs('funding history', 'item 6, response examples for payout_in_out'),
+      transfer: async () => needs('transfer', 'item 4, test methods that cannot move real money'),
+      history: async () => needs('funding history', 'item 6, response examples for payout_in_out'),
     },
 
     engagement: {
-      notifications: () => needs('notifications', 'item 6, response examples for apiNotifications'),
-      markNotificationsRead: () =>
+      notifications: async () => needs('notifications', 'item 6, response examples for apiNotifications'),
+      markNotificationsRead: async () =>
         needs('notification read state', 'item 6, response examples for apiNotificationsRead'),
     },
   }

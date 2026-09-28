@@ -92,10 +92,10 @@ export function createMockBackend(): WaveXBackend {
         }),
       list: () => settle(positions.filter((item) => item.state !== 'Closed')),
       history: () => settle(positions.filter((item) => item.state === 'Closed')),
-      place: () => unavailable('Placing an order'),
-      modify: () => unavailable('Modifying an order'),
-      cancel: () => unavailable('Cancelling an order'),
-      close: () => unavailable('Closing a position'),
+      place: async () => unavailable('Placing an order'),
+      modify: async () => unavailable('Modifying an order'),
+      cancel: async () => unavailable('Cancelling an order'),
+      close: async () => unavailable('Closing a position'),
     },
 
     funds: {
@@ -108,9 +108,9 @@ export function createMockBackend(): WaveXBackend {
           minimumDeposit: 100,
           minimumWithdrawal: 100,
         }),
-      deposit: () => unavailable('Submitting a deposit'),
-      requestWithdrawal: () => unavailable('Requesting a withdrawal'),
-      transfer: () => unavailable('Transferring funds'),
+      deposit: async () => unavailable('Submitting a deposit'),
+      requestWithdrawal: async () => unavailable('Requesting a withdrawal'),
+      transfer: async () => unavailable('Transferring funds'),
       history: () => settle(activity),
     },
 

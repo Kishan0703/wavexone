@@ -68,7 +68,13 @@ export function useBackendQuery<T>(
   useEffect(() => {
     let cancelled = false
 
-    latestRead.current(backend).then(
+    // `Promise.resolve().then(…)` rather than calling `read` directly: a read
+    // that throws synchronously would otherwise escape the rejection handler
+    // below and surface as an error thrown from the effect, which is the one
+    // failure this hook exists to turn into a message.
+    Promise.resolve()
+      .then(() => latestRead.current(backend))
+      .then(
       (data) => {
         if (!cancelled) setState({ status: 'ready', data, key })
       },
